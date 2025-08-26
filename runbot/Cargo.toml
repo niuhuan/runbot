@@ -1,0 +1,21 @@
+[package]
+name = "runbot"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+futures-util = "0.3"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "*"
+tracing = "0.1"
+uuid = { version = "1.18", features = ["v4"] }
+runbot-codegen = { path = "../runbot-codegen" }
+anyhow = "1.0"
+async-trait = "0.1"
+
+[dev-dependencies]
+tracing-subscriber = "0.3"

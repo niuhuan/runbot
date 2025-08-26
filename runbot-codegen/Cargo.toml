@@ -1,0 +1,15 @@
+[package]
+name = "runbot-codegen"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+darling = "0.20.10"
+proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.92"
+proc-macro2-diagnostics = "0.10.1"
+quote = "1.0.38"
+syn = { version = "2.0.95", features = ["full"] }
+
+[lib]
+proc-macro = true
