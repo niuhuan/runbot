@@ -4,12 +4,14 @@ RUNBOT
 Rust one bot v11 协议 （正向ws）
 
 - [x] 监听消息
-- [x] 发送文本消息
+- [x] 发送文本、图片、自定义onebot11JSON消息
 
 ## 使用
 
 您可以clone项目并运行 `cargo run --example demo` 
 
+
+#### 1. 运行和回复消息
 
 ```toml
 runbot = { git = "https://github.com/niuhuan/runbot.git" }
@@ -56,3 +58,23 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
 
 ![hello](images/hello.png)
 
+
+#### 消息链 (发送图片)
+
+```rust
+let mut chain = vec![];
+chain.push(MessageText::new("this").into());
+chain.push("is face".into());
+chain.push(
+    MessageFace {
+        id: "187".to_string(),
+        sub_type: 1,
+    }
+    .into(),
+);
+bot_ctx.send_private_message(message.user_id, chain).await?;
+let exec_path = std::env::current_dir().unwrap().join("target/test.png");
+bot_ctx.send_private_message(message.user_id, vec![
+    MessageImage::new(exec_path.to_str().unwrap()).into(),
+]).await?;
+```

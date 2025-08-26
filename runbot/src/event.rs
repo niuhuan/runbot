@@ -1,4 +1,6 @@
 use crate::error::{Error, Result};
+use serde_derive::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Debug)]
 pub enum Post {
@@ -251,7 +253,7 @@ pub struct Sender {
             }
         },
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MessageData {
     Text(MessageText),
     Face(MessageFace),
@@ -261,18 +263,67 @@ pub enum MessageData {
     Unknown(serde_json::Value),
 }
 
-#[derive(Debug)]
+impl serde::Serialize for MessageData {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            MessageData::Text(text) => json!({
+                "type": "text",
+                "data": text,
+            }).serialize(serializer),
+            MessageData::Face(face) => json!({
+                "type": "face",
+                "data": face,
+            }).serialize(serializer),
+            MessageData::Image(image) => json!({
+                "type": "image",
+                "data": image,
+            }).serialize(serializer),
+            MessageData::At(at) => json!({
+                "type": "at",
+                "data": at,
+            }).serialize(serializer),
+            MessageData::Reply(reply) => json!({
+                "type": "reply",
+                "data": reply,
+            }).serialize(serializer),
+            MessageData::Unknown(value) => value.clone().serialize(serializer),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageText {
     pub text: String,
 }
 
-#[derive(Debug)]
+impl MessageText {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self { text: text.into() }
+    }
+}
+
+impl Into<MessageData> for MessageText {
+    fn into(self) -> MessageData {
+        MessageData::Text(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageFace {
     pub id: String,
     pub sub_type: i64,
 }
 
-#[derive(Debug)]
+impl Into<MessageData> for MessageFace {
+    fn into(self) -> MessageData {
+        MessageData::Face(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageImage {
     pub file: String,
     pub sub_type: i64,
@@ -280,18 +331,36 @@ pub struct MessageImage {
     pub file_size: i64,
 }
 
-#[derive(Debug)]
+impl MessageImage {
+    pub fn new(file: impl Into<String>) -> Self {
+        Self { file: file.into(), sub_type: 0, url: "".into(), file_size: 0 }
+    }
+}
+
+impl Into<MessageData> for MessageImage {
+    fn into(self) -> MessageData {
+        MessageData::Image(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageAt {
     pub qq: String,
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReply {
     pub id: i64,
 }
 
-#[derive(Debug)]
+impl Into<MessageData> for MessageReply {
+    fn into(self) -> MessageData {
+        MessageData::Reply(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageDataType {
     Text,
 }
@@ -718,8 +787,7 @@ impl MessageImage {
             0
         };
         let url = if let Some(url) = value.get("url") {
-            url
-                .as_str()
+            url.as_str()
                 .ok_or(Error::FieldError("url not found".to_string()))?
                 .to_string()
         } else {
@@ -731,7 +799,9 @@ impl MessageImage {
         let file_size = file_size
             .get("file_size")
             .ok_or(Error::FieldError("file_size not found".to_string()))?;
-        let file_size = file_size.as_i64().ok_or(Error::FieldError("file_size not found".to_string()))?;
+        let file_size = file_size
+            .as_i64()
+            .ok_or(Error::FieldError("file_size not found".to_string()))?;
         Ok(MessageImage {
             file: file.to_string(),
             sub_type,
@@ -784,4 +854,40 @@ impl MessageReply {
 pub fn parse_post(text: &str) -> Result<Post> {
     let value: serde_json::Value = serde_json::from_str(text)?;
     Post::parse(&value)
+}
+
+pub trait SendMessage {
+    fn json(&self) -> Result<serde_json::Value>;
+}
+
+impl SendMessage for &str {
+    fn json(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::Value::String(self.to_string()))
+    }
+}
+
+impl SendMessage for String {
+    fn json(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::Value::String(self.clone()))
+    }
+}
+
+pub type MessageChain = Vec<MessageData>;
+
+impl SendMessage for MessageChain {
+    fn json(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::to_value(&self)?)
+    }
+}
+
+impl Into<MessageData> for &str {
+    fn into(self) -> MessageData {
+        MessageData::Text(MessageText { text: self.to_string() })
+    }
+}
+
+impl Into<MessageData> for String {
+    fn into(self) -> MessageData {
+        MessageData::Text(MessageText { text: self })
+    }
 }

@@ -17,7 +17,7 @@ pub struct BotContext {
     connection: Mutex<Option<BotConnection>>,
     pub url: String,
     pub id: i64,
-    pub message_processors: Vec<Box<dyn MessageProcessor>>,
+    pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
 }
 
 impl BotContext {
@@ -40,14 +40,53 @@ impl BotContext {
         Ok(echo)
     }
 
-    pub async fn send_private_message(&self, user_id: i64, message: String) -> Result<String> {
+    pub async fn send_private_message(
+        &self,
+        user_id: i64,
+        message: impl SendMessage,
+    ) -> Result<String> {
         let msg = json!(
             {
                 "user_id": user_id,
-                "message": message,
+                "message": message.json()?,
             }
         );
         self.websocket_send("send_private_msg", msg).await
+    }
+
+    pub async fn send_group_message(
+        &self,
+        group_id: i64,
+        message: impl SendMessage,
+    ) -> Result<String> {
+        let msg = json!(
+            {
+                "group_id": group_id,
+                "message": message.json()?,
+            }
+        );
+        self.websocket_send("send_group_msg", msg).await
+    }
+
+    pub async fn send_message(
+        &self,
+        message_type: MessageType,
+        target_id: i64,
+        message: impl SendMessage,
+    ) -> Result<String> {
+        match message_type {
+            MessageType::Private => self.send_private_message(target_id, message).await,
+            MessageType::Group => self.send_group_message(target_id, message).await,
+        }
+    }
+
+    pub async fn delete_msg(&self, message_id: i64) -> Result<String> {
+        let msg = json!(
+            {
+                "message_id": message_id,
+            }
+        );
+        self.websocket_send("delete_msg", msg).await
     }
 }
 
@@ -72,9 +111,14 @@ impl BotContext {
                         Post::Message(message) => {
                             tracing::debug!("WS received: {:?}", message);
                             let message = Arc::new(message);
-                            for processor in self.message_processors.iter() {
-                                let _ = processor.process_message(bot_ctx.clone(), message.clone()).await;
-                            }
+                            let message_processors = self.message_processors.clone();
+                            tokio::spawn(async move {
+                                for processor in message_processors.iter() {
+                                    let _ = processor
+                                        .process_message(bot_ctx.clone(), message.clone())
+                                        .await;
+                                }
+                            });
                         }
                     },
                     Err(e) => {
@@ -138,7 +182,7 @@ impl BotContextBuilder {
                 return Err(Error::ParamsError("url is required".to_string()));
             },
             id: 0,
-            message_processors: self.message_processors,
+            message_processors: Arc::new(self.message_processors),
         }))
     }
 }
