@@ -275,6 +275,9 @@ pub struct MessageFace {
 #[derive(Debug)]
 pub struct MessageImage {
     pub file: String,
+    pub sub_type: i64,
+    pub url: String,
+    pub file_size: i64,
 }
 
 #[derive(Debug)]
@@ -705,13 +708,35 @@ impl MessageImage {
             .get("data")
             .ok_or(Error::FieldError("data not found".to_string()))?;
         let file = file
-            .get("file")
-            .ok_or(Error::FieldError("file not found".to_string()))?;
-        let file = file
             .as_str()
             .ok_or(Error::FieldError("file not found".to_string()))?;
+        let sub_type = if let Some(sub_type) = value.get("data") {
+            sub_type
+                .as_i64()
+                .ok_or(Error::FieldError("sub_type not found".to_string()))?
+        } else {
+            0
+        };
+        let url = if let Some(url) = value.get("url") {
+            url
+                .as_str()
+                .ok_or(Error::FieldError("url not found".to_string()))?
+                .to_string()
+        } else {
+            "".to_string()
+        };
+        let file_size = value
+            .get("data")
+            .ok_or(Error::FieldError("data not found".to_string()))?;
+        let file_size = file_size
+            .get("file_size")
+            .ok_or(Error::FieldError("file_size not found".to_string()))?;
+        let file_size = file_size.as_i64().ok_or(Error::FieldError("file_size not found".to_string()))?;
         Ok(MessageImage {
             file: file.to_string(),
+            sub_type,
+            url,
+            file_size,
         })
     }
 }
