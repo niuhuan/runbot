@@ -5,10 +5,11 @@ Rust one bot v11 协议 （正向ws）
 
 - [x] 监听消息
 - [x] 发送文本、图片、自定义onebot11JSON消息
+- [x] 接受Response回执
 
 ## 使用
 
-您可以clone项目并运行 `cargo run --example demo` 
+您可以clone项目并运行 `cargo run --example demo_processor_fn` 
 
 
 #### 1. 运行和回复消息
@@ -77,4 +78,13 @@ let exec_path = std::env::current_dir().unwrap().join("target/test.png");
 bot_ctx.send_private_message(message.user_id, vec![
     MessageImage::new(exec_path.to_str().unwrap()).into(),
 ]).await?;
+```
+
+#### 获取Onebot11的异步Reponse 
+
+```rust
+bot_ctx.send_private_message(12345, "hello").await?;
+let async_response = bot_ctx.send_private_message(message.user_id, chain).await?;
+let msg_id = async_response.wait_response(Duration::from_secs(3)).await?.message_id;
+bot_ctx.delete_msg(msg_id).await?;
 ```

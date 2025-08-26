@@ -16,6 +16,7 @@ uuid = { version = "1.18", features = ["v4"] }
 runbot-codegen = { path = "../runbot-codegen" }
 anyhow = "1.0"
 async-trait = "0.1"
+dashmap = "6.1.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use runbot::prelude::*;
-use std::{sync::Arc, vec};
+use std::{sync::Arc, time::Duration, vec};
 
 #[tokio::main]
 async fn main() {
@@ -32,11 +32,13 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
                 }
                 .into(),
             );
-            bot_ctx.send_private_message(message.user_id, chain).await?;
+            let async_response = bot_ctx.send_private_message(message.user_id, chain).await?;
             let exec_path = std::env::current_dir().unwrap().join("target/test.png");
-            bot_ctx.send_private_message(message.user_id, vec![
+             bot_ctx.send_private_message(message.user_id, vec![
                 MessageImage::new(exec_path.to_str().unwrap()).into(),
             ]).await?;
+            let msg_id = async_response.wait_response(Duration::from_secs(3)).await?.message_id;
+            bot_ctx.delete_msg(msg_id).await?;
         }
     }
     Ok(true)

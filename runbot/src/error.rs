@@ -13,6 +13,8 @@ pub enum Error {
     StateError(String),
     #[error("websocket error: {0}")]
     WebSocketError(#[from] tokio_tungstenite::tungstenite::Error),
+    #[error("timeout error: {0}")]
+    TimeoutError(#[from] tokio::time::error::Elapsed),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
