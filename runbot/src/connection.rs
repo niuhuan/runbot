@@ -15,7 +15,6 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
-use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{WebSocketStream, accept_async, connect_async};
 
 #[derive(Debug)]
@@ -41,9 +40,18 @@ impl Drop for EchoAsyncResponse {
 }
 
 impl EchoAsyncResponse {
-    pub async fn wait_response(mut self, timeout: Duration) -> Result<Response> {
+    pub async fn response(mut self, timeout: Duration) -> Result<Response> {
         let r = tokio::time::timeout(timeout, async { self.1.recv().await }).await?;
         Ok(r.ok_or(Error::StateError("response not received".to_string()))?)
+    }
+
+    pub async fn data(self, timeout: Duration) -> Result<serde_json::Value> {
+        let r = self.response(timeout).await?;
+        if r.retcode != 0 {
+            return Err(Error::StateError(r.message));
+        } else {
+            Ok(r.data)
+        }
     }
 }
 
@@ -55,13 +63,16 @@ pub struct SendMessageResponse {
 }
 
 impl SendMessageAsyncResponse {
-    pub async fn wait_response(self, timeout: Duration) -> Result<SendMessageResponse> {
-        let r = self.0.wait_response(timeout).await?;
-        if r.retcode != 0 {
-            return Err(Error::StateError(r.message));
-        } else {
-            Ok(serde_json::from_value(r.data)?)
-        }
+    pub async fn wait_response_with_timeout(
+        self,
+        timeout: Duration,
+    ) -> Result<SendMessageResponse> {
+        Ok(serde_json::from_value(self.0.data(timeout).await?)?)
+    }
+
+    pub async fn wait_response(self) -> Result<SendMessageResponse> {
+        self.wait_response_with_timeout(Duration::from_secs(10))
+            .await
     }
 }
 
@@ -144,6 +155,26 @@ impl BotContext {
         );
         self.websocket_send("delete_msg", msg).await
     }
+
+    pub async fn get_msg_with_timeout(
+        &self,
+        message_id: i64,
+        timeout: Duration,
+    ) -> Result<Message> {
+        let send = json!({
+            "message_id": message_id,
+        });
+        let response = self.websocket_send("get_msg", send).await?;
+        let data = response.data(timeout).await?;
+        let msg = Message::parse(&data)?;
+        Ok(msg)
+    }
+
+    // todo: default time for bot context
+    pub async fn get_msg(&self, message_id: i64) -> Result<Message> {
+        self.get_msg_with_timeout(message_id, Duration::from_secs(3))
+            .await
+    }
 }
 
 impl BotContext {
@@ -152,9 +183,13 @@ impl BotContext {
         *connection_lock = connection.into();
     }
 
-    async fn handle_receive(&self, bot_ctx: Arc<BotContext>, msg: &Message) {
+    async fn handle_receive(
+        &self,
+        bot_ctx: Arc<BotContext>,
+        msg: &tokio_tungstenite::tungstenite::protocol::Message,
+    ) {
         match msg {
-            Message::Text(text) => {
+            tokio_tungstenite::tungstenite::protocol::Message::Text(text) => {
                 tracing::debug!("WS received: {}", text.to_string());
                 match parse_post(text) {
                     Ok(post) => match post {
@@ -218,6 +253,10 @@ impl BotContext {
                                 }
                             });
                         }
+                        Post::MessageSent(message) => {
+                            tracing::debug!("parse to message sent: {:?}", message);
+                        }
+                        Post::Request(_) => {}
                     },
                     Err(e) => {
                         tracing::error!("WS received: {:?}", e);
@@ -238,12 +277,16 @@ pub trait WsWriter {
 
 // 泛型实现
 #[async_trait]
-impl<S> WsWriter for SplitSink<WebSocketStream<S>, Message>
+impl<S> WsWriter
+    for SplitSink<WebSocketStream<S>, tokio_tungstenite::tungstenite::protocol::Message>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     async fn send_raw(&mut self, msg: String) -> Result<()> {
-        self.send(Message::Text(msg.into())).await?;
+        self.send(tokio_tungstenite::tungstenite::protocol::Message::Text(
+            msg.into(),
+        ))
+        .await?;
         Ok(())
     }
 }

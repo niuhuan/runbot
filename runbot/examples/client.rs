@@ -29,7 +29,7 @@ pub async fn demo_message_processor_fn(
             let bot_ctx = bot_ctx.clone();
             tokio::spawn(async move {
                 let msg_id = async_response
-                    .wait_response(Duration::from_secs(3))
+                    .wait_response()
                     .await
                     .unwrap()
                     .message_id;

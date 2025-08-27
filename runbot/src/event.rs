@@ -8,6 +8,8 @@ pub enum Post {
     Response(Response),
     Message(Message),
     Notice(Notice),
+    Request(Request),
+    MessageSent(Message),
 }
 
 #[derive(Debug)]
@@ -15,7 +17,10 @@ pub enum PostType {
     MetaEvent,
     Response,
     Message,
+    MessageSent,
     Notice,
+    Request,
+    Unknown(String),
 }
 
 #[derive(Debug)]
@@ -87,6 +92,11 @@ pub struct Response {
     pub message: String,
     pub wording: String,
     pub echo: String,
+}
+
+
+#[derive(Debug)]
+pub struct Request {
 }
 
 /*
@@ -161,7 +171,7 @@ pub struct Message {
     pub sub_type: MessageSubType,
     pub message: Vec<MessageData>,
     pub message_format: String,
-    pub post_type: String,
+    pub post_type: PostType,
     pub group_id: i64,
 }
 
@@ -607,7 +617,22 @@ impl Post {
             "meta_event" => Ok(Post::MetaEvent(MetaEvent::parse(&value)?)),
             "message" => Ok(Post::Message(Message::parse(&value)?)),
             "notice" => Ok(Post::Notice(Notice::parse(&value)?)),
+            "request" => Ok(Post::Request(Request::parse(&value)?)),
+            "message_sent" => Ok(Post::MessageSent(Message::parse(&value)?)),
             _ => Err(Error::FieldError("unknown post_type".to_string())),
+        }
+    }
+}
+
+impl PostType {
+    pub fn parse(value: &str) -> Result<PostType> {
+        match value {
+            "meta_event" => Ok(PostType::MetaEvent),
+            "message" => Ok(PostType::Message),
+            "notice" => Ok(PostType::Notice),
+            "request" => Ok(PostType::Request),
+            "message_sent" => Ok(PostType::MessageSent),
+            r#type => Ok(PostType::Unknown(r#type.to_string())),
         }
     }
 }
@@ -863,6 +888,7 @@ impl Message {
         let post_type = post_type
             .as_str()
             .ok_or(Error::FieldError("post_type not found".to_string()))?;
+        let post_type = PostType::parse(post_type)?;
         let group_id = if let Some(group_id) = value.get("group_id") {
             group_id
                 .as_i64()
@@ -883,7 +909,7 @@ impl Message {
             sub_type,
             message,
             message_format: message_format.to_string(),
-            post_type: post_type.to_string(),
+            post_type: post_type,
             group_id,
         })
     }
@@ -1743,5 +1769,11 @@ impl Honor {
             honor_type,
             user_id,
         })
+    }
+}
+
+impl Request {
+    pub fn parse(_value: &serde_json::Value) -> Result<Request> {
+        return Err(Error::FieldError("request unimplemented".to_string()));
     }
 }

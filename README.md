@@ -11,11 +11,11 @@ Rust one bot v11 协议 （ 正向ws / 反向ws ）
 - [x] 操作
   - [x] 发送文本、图片、自定义onebot11JSON消息 到 私聊、组群 (并异步取得发送结果以及消息ID)
   - [x] 撤回消息
-  - [ ] 获取消息
+  - [x] 根据消息ID获取消息
   - [ ] 获取合并转发消息
   - [ ] 发送好友赞
   - [ ] 群组踢人
-  - [ ] ....
+  - [ ] ...
 - [ ] 拓展
   - [ ] 命令匹配、命令宏
 
@@ -112,7 +112,7 @@ bot_ctx.send_private_message(message.user_id, vec![
 ```rust
 bot_ctx.send_private_message(12345, "hello").await?;
 let async_response = bot_ctx.send_private_message(message.user_id, chain).await?;
-let msg_id = async_response.wait_response(Duration::from_secs(3)).await?.message_id;
+let msg_id = async_response.wait_response().await?.message_id;
 bot_ctx.delete_msg(msg_id).await?;
 ```
 
