@@ -542,13 +542,13 @@ dependencies = [
 
 [[package]]
 name = "runbot"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "async-trait",
  "dashmap",
  "futures-util",
- "runbot-codegen 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "runbot-codegen",
  "serde",
  "serde_derive",
  "serde_json",
@@ -562,21 +562,7 @@ dependencies = [
 
 [[package]]
 name = "runbot-codegen"
-version = "0.0.1"
-dependencies = [
- "darling",
- "proc-macro-error",
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 2.0.106",
-]
-
-[[package]]
-name = "runbot-codegen"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a347881a8ad0524e7da02ac5ea0c09fef08da3c42dba386d6ab5c055ae6f76ed"
+version = "0.0.2"
 dependencies = [
  "darling",
  "proc-macro-error",
