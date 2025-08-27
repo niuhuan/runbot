@@ -25,7 +25,7 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
             let bot_ctx = bot_ctx.clone();
             tokio::spawn(async move {
                 let msg_id = async_response
-                    .wait_response(Duration::from_secs(3))
+                    .wait_response()
                     .await
                     .unwrap()
                     .message_id;
