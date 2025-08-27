@@ -14,7 +14,7 @@ pub enum Post {
     MessageSent(Message),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
 pub enum PostType {
     MetaEvent,
     Response,
@@ -23,41 +23,6 @@ pub enum PostType {
     Notice,
     Request,
     Unknown(String),
-}
-
-impl serde::Serialize for PostType {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            PostType::MetaEvent => serializer.serialize_str("meta_event"),
-            PostType::Response => serializer.serialize_str("response"),
-            PostType::Message => serializer.serialize_str("message"),
-            PostType::MessageSent => serializer.serialize_str("message_sent"),
-            PostType::Notice => serializer.serialize_str("notice"),
-            PostType::Request => serializer.serialize_str("request"),
-            PostType::Unknown(s) => serializer.serialize_str(s),
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for PostType {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "meta_event" => Ok(PostType::MetaEvent),
-            "response" => Ok(PostType::Response),
-            "message" => Ok(PostType::Message),
-            "message_sent" => Ok(PostType::MessageSent),
-            "notice" => Ok(PostType::Notice),
-            "request" => Ok(PostType::Request),
-            _ => Ok(PostType::Unknown(s)),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -127,30 +92,37 @@ pub struct Message {
     pub group_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
 pub enum MessageType {
     Private,
     Group,
+    Unknown(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
 pub enum MessageFormat {
     Array,
     String,
+    Unknown(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
 pub enum MessageSubType {
     Friend,
     Normal,
+    Unknown(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct Sender {
     pub user_id: i64,
+    #[serde(default)]
     pub nickname: String,
+    #[serde(default)]
     pub card: String,
+    #[serde(default)]
     pub role: String,
+    #[serde(default)]
     pub title: String,
 }
 
@@ -313,7 +285,7 @@ pub enum Notice {
     Unknown(serde_json::Value),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde)]
 pub enum NoticeType {
     GroupUpload,
     GroupAdmin,
@@ -325,48 +297,6 @@ pub enum NoticeType {
     FriendRecall,
     Notify,
     Unknown(String),
-}
-
-
-impl serde::Serialize for NoticeType {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            NoticeType::GroupUpload => serializer.serialize_str("group_upload"),
-            NoticeType::GroupAdmin => serializer.serialize_str("group_admin"),
-            NoticeType::GroupDecrease => serializer.serialize_str("group_decrease"),
-            NoticeType::GroupIncrease => serializer.serialize_str("group_increase"),
-            NoticeType::GroupBan => serializer.serialize_str("group_ban"),
-            NoticeType::FriendAdd => serializer.serialize_str("friend_add"),
-            NoticeType::GroupRecall => serializer.serialize_str("group_recall"),
-            NoticeType::FriendRecall => serializer.serialize_str("friend_recall"),
-            NoticeType::Notify => serializer.serialize_str("notify"),
-            NoticeType::Unknown(s) => serializer.serialize_str(s),
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for NoticeType {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "group_upload" => Ok(NoticeType::GroupUpload),
-            "group_admin" => Ok(NoticeType::GroupAdmin),
-            "group_decrease" => Ok(NoticeType::GroupDecrease),
-            "group_increase" => Ok(NoticeType::GroupIncrease),
-            "group_ban" => Ok(NoticeType::GroupBan),
-            "friend_add" => Ok(NoticeType::FriendAdd),
-            "group_recall" => Ok(NoticeType::GroupRecall),
-            "friend_recall" => Ok(NoticeType::FriendRecall),
-            "notify" => Ok(NoticeType::Notify),
-            _ => Ok(NoticeType::Unknown(s)),
-        }
-    }
 }
 
 
@@ -500,41 +430,12 @@ pub enum Notify {
     Unknown(serde_json::Value),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde)]
 pub enum NotifySubType {
     Poke,
     LuckyKing,
     Honor,
     Unknown(String),
-}
-
-impl serde::Serialize for NotifySubType {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            NotifySubType::Poke => serializer.serialize_str("poke"),
-            NotifySubType::LuckyKing => serializer.serialize_str("lucky_king"),
-            NotifySubType::Honor => serializer.serialize_str("honor"),
-            NotifySubType::Unknown(s) => serializer.serialize_str(s),
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for NotifySubType {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "poke" => Ok(NotifySubType::Poke),
-            "lucky_king" => Ok(NotifySubType::LuckyKing),
-            "honor" => Ok(NotifySubType::Honor),
-            _ => Ok(NotifySubType::Unknown(s)),
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, runbot_codegen::ParseJson)]
@@ -601,19 +502,6 @@ impl Post {
             "request" => Ok(Post::Request(Request::parse(&value)?)),
             "message_sent" => Ok(Post::MessageSent(Message::parse(&value)?)),
             _ => Err(Error::FieldError("unknown post_type".to_string())),
-        }
-    }
-}
-
-impl PostType {
-    pub fn parse(value: &str) -> Result<PostType> {
-        match value {
-            "meta_event" => Ok(PostType::MetaEvent),
-            "message" => Ok(PostType::Message),
-            "notice" => Ok(PostType::Notice),
-            "request" => Ok(PostType::Request),
-            "message_sent" => Ok(PostType::MessageSent),
-            r#type => Ok(PostType::Unknown(r#type.to_string())),
         }
     }
 }
@@ -860,15 +748,9 @@ impl Message {
         let message_format = value
             .get("message_format")
             .ok_or(Error::FieldError("message_format not found".to_string()))?;
-        let message_format = message_format
-            .as_str()
-            .ok_or(Error::FieldError("message_format not found".to_string()))?;
         let message_format = MessageFormat::parse(message_format)?;
         let post_type = value
             .get("post_type")
-            .ok_or(Error::FieldError("post_type not found".to_string()))?;
-        let post_type = post_type
-            .as_str()
             .ok_or(Error::FieldError("post_type not found".to_string()))?;
         let post_type = PostType::parse(post_type)?;
         let group_id = if let Some(group_id) = value.get("group_id") {
@@ -893,52 +775,6 @@ impl Message {
             message_format,
             post_type: post_type,
             group_id,
-        })
-    }
-}
-
-impl Sender {
-    pub fn parse(value: &serde_json::Value) -> Result<Sender> {
-        let user_id = value
-            .get("user_id")
-            .ok_or(Error::FieldError("user_id not found".to_string()))?;
-        let user_id = user_id
-            .as_i64()
-            .ok_or(Error::FieldError("user_id not found".to_string()))?;
-        let nickname = value
-            .get("nickname")
-            .ok_or(Error::FieldError("nickname not found".to_string()))?;
-        let nickname = nickname
-            .as_str()
-            .ok_or(Error::FieldError("nickname not found".to_string()))?;
-        let card = if let Some(card) = value.get("card") {
-            card.as_str()
-                .ok_or(Error::FieldError("card not found".to_string()))?
-                .to_string()
-        } else {
-            "".to_string()
-        };
-        let role = if let Some(role) = value.get("role") {
-            role.as_str()
-                .ok_or(Error::FieldError("role not found".to_string()))?
-                .to_string()
-        } else {
-            "".to_string()
-        };
-        let title = if let Some(title) = value.get("title") {
-            title
-                .as_str()
-                .ok_or(Error::FieldError("title not found".to_string()))?
-                .to_string()
-        } else {
-            "".to_string()
-        };
-        Ok(Sender {
-            user_id,
-            nickname: nickname.to_string(),
-            card: card.to_string(),
-            role: role.to_string(),
-            title: title.to_string(),
         })
     }
 }
@@ -1007,26 +843,6 @@ impl Into<MessageData> for String {
     }
 }
 
-impl MessageType {
-    pub fn parse(value: &str) -> Result<MessageType> {
-        match value {
-            "private" => Ok(MessageType::Private),
-            "group" => Ok(MessageType::Group),
-            _ => Err(Error::FieldError("unknown message_type".to_string())),
-        }
-    }
-}
-
-impl MessageFormat {
-    pub fn parse(value: &str) -> Result<MessageFormat> {
-        match value {
-            "array" => Ok(MessageFormat::Array),
-            "string" => Ok(MessageFormat::String),
-            _ => Err(Error::FieldError("unknown message_format".to_string())),
-        }
-    }
-}
-
 impl ForwardMessage {
     pub fn parse(value: &serde_json::Value) -> Result<ForwardMessage> {
         let messages = value
@@ -1068,15 +884,9 @@ impl ForwardMessageNode {
         let message_format = value
             .get("message_format")
             .ok_or(Error::FieldError("message_format not found".to_string()))?;
-        let message_format = message_format
-            .as_str()
-            .ok_or(Error::FieldError("message_format not found".to_string()))?;
         let message_format = MessageFormat::parse(message_format)?;
         let message_type = value
             .get("message_type")
-            .ok_or(Error::FieldError("message_type not found".to_string()))?;
-        let message_type = message_type
-            .as_str()
             .ok_or(Error::FieldError("message_type not found".to_string()))?;
         let message_type = MessageType::parse(message_type)?;
         Ok(ForwardMessageNode {

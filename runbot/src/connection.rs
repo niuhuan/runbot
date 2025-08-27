@@ -144,6 +144,7 @@ impl BotContext {
         match message_type {
             MessageType::Private => self.send_private_message(target_id, message).await,
             MessageType::Group => self.send_group_message(target_id, message).await,
+            _ => Err(Error::FieldError("unknown message_type".to_string())),
         }
     }
 

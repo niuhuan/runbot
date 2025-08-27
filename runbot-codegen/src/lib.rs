@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
@@ -101,9 +102,9 @@ fn common_processor(
     let fn_name = method.sig.ident.clone();
     let block = &method.block;
     let return_type = &method.sig.output;
-    let struct_name = snake_to_upper_camel(&fn_name.to_string());
+    let struct_name = &fn_name.to_string().to_case(Case::UpperCamel);
     let struct_name = proc_macro2::Ident::new(&struct_name, proc_macro2::Span::call_site());
-    let static_name = to_upper_snake(&fn_name.to_string());
+    let static_name = &fn_name.to_string().to_case(Case::UpperSnake);
     let static_name = proc_macro2::Ident::new(&static_name, proc_macro2::Span::call_site());
 
     emit!(quote::quote! {
@@ -122,28 +123,6 @@ fn common_processor(
     })
 }
 
-fn snake_to_upper_camel(s: &str) -> String {
-    s.split('_')
-        .filter(|part| !part.is_empty())
-        .map(|part| {
-            let mut chars = part.chars();
-            match chars.next() {
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                None => String::new(),
-            }
-        })
-        .collect::<String>()
-}
-
-fn to_upper_snake(s: &str) -> String {
-    s.split('_')
-        .filter(|part| !part.is_empty())
-        .map(|part| part.to_uppercase())
-        .collect::<Vec<String>>()
-        .join("_")
-}
-
-
 #[proc_macro_derive(ParseJson)]
 pub fn parse_json_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -158,4 +137,57 @@ pub fn parse_json_derive(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+
+#[proc_macro_derive(UnknownTypeSerde)]
+pub fn notice_type_serde(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let name = &input.ident;
+
+    let variants = match input.data {
+        syn::Data::Enum(syn::DataEnum { ref variants, .. }) => variants,
+        _ => panic!("NoticeTypeSerde can only be used with enums"),
+    };
+
+    let match_arms_ser = variants.iter().map(|v| {
+        let ident = &v.ident;
+        let ser_string = ident.to_string().to_case(Case::Snake);
+        if ident == "Unknown" {
+            quote! { #name::Unknown(s) => serializer.serialize_str(s), }
+        } else {
+            quote! { #name::#ident => serializer.serialize_str(#ser_string), }
+        }
+    });
+
+    let match_arms_de = variants.iter().map(|v| {
+        let ident = &v.ident;
+        let de_string = ident.to_string().to_case(Case::Snake);
+        if ident == "Unknown" {
+            quote! { other => Ok(#name::Unknown(other.to_string())), }
+        } else {
+            quote! { #de_string => Ok(#name::#ident), }
+        }
+    });
+
+    let r#gen = quote! {
+        impl serde::Serialize for #name {
+            fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+            where S: serde::Serializer {
+                match self {
+                    #(#match_arms_ser)*
+                }
+            }
+        }
+        impl<'de> serde::Deserialize<'de> for #name {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                let s = String::deserialize(deserializer)?;
+                match s.as_str() {
+                    #(#match_arms_de)*
+                }
+            }
+        }
+    };
+    r#gen.into()
 }
