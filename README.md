@@ -18,7 +18,10 @@ Rust one bot v11 协议 （ 正向ws / 反向ws ）
 #### 1. 运行和回复消息
 
 ```toml
+# 使用github版本
 runbot = { git = "https://github.com/niuhuan/runbot.git" }
+# 使用crates.io版本
+runbot = "0"
 ```
 
 ```rust
