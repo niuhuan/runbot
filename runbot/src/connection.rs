@@ -4,7 +4,7 @@ use std::vec;
 
 use crate::error::{Error, Result};
 use crate::event::*;
-use crate::process::MessageProcessor;
+use crate::process::{MessageProcessor, NoticeProcessor};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::stream::SplitSink;
@@ -24,6 +24,7 @@ pub struct BotContext {
     pub url: Option<String>,
     pub id: i64,
     pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
+    pub notice_processors: Arc<Vec<Box<dyn NoticeProcessor>>>,
     pub echo_notifer: Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
 }
 
@@ -177,14 +178,45 @@ impl BotContext {
                             let message_processors = self.message_processors.clone();
                             tokio::spawn(async move {
                                 for processor in message_processors.iter() {
-                                    let _ = processor
+                                    match processor
                                         .process_message(bot_ctx.clone(), message.clone())
-                                        .await;
+                                        .await
+                                    {
+                                        Ok(b) => {
+                                            if b {
+                                                break;
+                                            }
+                                        }
+                                        Err(err) => {
+                                            tracing::error!("process message error {:?}", err);
+                                            break;
+                                        }
+                                    }
                                 }
                             });
                         }
-                        Post::Notice(_) => {
-                            //
+                        Post::Notice(notice) => {
+                            tracing::debug!("WS received: {:?}", notice);
+                            let notice = Arc::new(notice);
+                            let notice_processors = self.notice_processors.clone();
+                            tokio::spawn(async move {
+                                for processor in notice_processors.iter() {
+                                    match processor
+                                        .process_notice(bot_ctx.clone(), notice.clone())
+                                        .await
+                                    {
+                                        Ok(b) => {
+                                            if b {
+                                                break;
+                                            }
+                                        }
+                                        Err(err) => {
+                                            tracing::error!("process notice error {:?}", err);
+                                            break;
+                                        }
+                                    }
+                                }
+                            });
                         }
                     },
                     Err(e) => {
@@ -237,6 +269,7 @@ impl fmt::Debug for BotConnection {
 pub struct BotContextBuilder {
     pub url: Option<String>,
     pub message_processors: Vec<Box<dyn MessageProcessor>>,
+    pub notice_processors: Vec<Box<dyn NoticeProcessor>>,
 }
 
 impl BotContextBuilder {
@@ -244,6 +277,7 @@ impl BotContextBuilder {
         Self {
             url: None,
             message_processors: vec![],
+            notice_processors: vec![],
         }
     }
 
@@ -262,12 +296,21 @@ impl BotContextBuilder {
         self
     }
 
+    pub fn add_notice_processor(
+        mut self,
+        processor: impl NoticeProcessor + Copy + 'static,
+    ) -> Self {
+        self.notice_processors.push(Box::new(processor));
+        self
+    }
+
     pub fn build(self) -> Result<Arc<BotContext>> {
         Ok(Arc::new(BotContext {
             connection: Mutex::new(None),
             url: self.url,
             id: 0,
             message_processors: Arc::new(self.message_processors),
+            notice_processors: Arc::new(self.notice_processors),
             echo_notifer: Arc::new(DashMap::new()),
         }))
     }
@@ -276,11 +319,13 @@ impl BotContextBuilder {
 pub struct BotServer {
     pub bind: String,
     pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
+    pub notice_processors: Arc<Vec<Box<dyn NoticeProcessor>>>,
 }
 
 pub struct BotServerBuilder {
     pub bind: Option<String>,
     pub message_processors: Vec<Box<dyn MessageProcessor>>,
+    pub notice_processors: Vec<Box<dyn NoticeProcessor>>,
 }
 
 impl BotServerBuilder {
@@ -288,6 +333,7 @@ impl BotServerBuilder {
         Self {
             bind: None,
             message_processors: vec![],
+            notice_processors: vec![],
         }
     }
 
@@ -304,6 +350,14 @@ impl BotServerBuilder {
         self
     }
 
+    pub fn add_notice_processor(
+        mut self,
+        processor: impl NoticeProcessor + Copy + 'static,
+    ) -> Self {
+        self.notice_processors.push(Box::new(processor));
+        self
+    }
+
     pub fn build(self) -> Result<Arc<BotServer>> {
         Ok(Arc::new(BotServer {
             bind: if let Some(bind) = self.bind {
@@ -312,6 +366,7 @@ impl BotServerBuilder {
                 return Err(Error::ParamsError("bind must be set".to_string()));
             },
             message_processors: Arc::new(self.message_processors),
+            notice_processors: Arc::new(self.notice_processors),
         }))
     }
 }
@@ -346,6 +401,7 @@ pub async fn loop_server(bot_server: Arc<BotServer>) -> Result<()> {
     println!("WebSocket server started on ws://{}", &bot_server.bind);
     while let Ok((stream, _)) = listener.accept().await {
         let message_processors = bot_server.message_processors.clone();
+        let notice_processors = bot_server.notice_processors.clone();
         tokio::spawn(async move {
             // 协议升级为 WebSocket
             let ws_stream = accept_async(stream).await.unwrap();
@@ -355,6 +411,7 @@ pub async fn loop_server(bot_server: Arc<BotServer>) -> Result<()> {
                     url: None,
                     id: 0,
                     message_processors: message_processors,
+                    notice_processors: notice_processors,
                     echo_notifer: Arc::new(DashMap::new()),
                 }),
                 ws_stream,
