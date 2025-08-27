@@ -142,3 +142,20 @@ fn to_upper_snake(s: &str) -> String {
         .collect::<Vec<String>>()
         .join("_")
 }
+
+
+#[proc_macro_derive(ParseJson)]
+pub fn parse_json_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let name = &input.ident;
+
+    let expanded = quote! {
+        impl #name {
+            pub fn parse(json: &serde_json::Value) -> Result<Self> {
+                Ok(serde_json::from_value(json.clone())?)
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}

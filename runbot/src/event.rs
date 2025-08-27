@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use crate::error::{Error, Result};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,7 +14,7 @@ pub enum Post {
     MessageSent(Message),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PostType {
     MetaEvent,
     Response,
@@ -23,25 +25,47 @@ pub enum PostType {
     Unknown(String),
 }
 
+impl serde::Serialize for PostType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            PostType::MetaEvent => serializer.serialize_str("meta_event"),
+            PostType::Response => serializer.serialize_str("response"),
+            PostType::Message => serializer.serialize_str("message"),
+            PostType::MessageSent => serializer.serialize_str("message_sent"),
+            PostType::Notice => serializer.serialize_str("notice"),
+            PostType::Request => serializer.serialize_str("request"),
+            PostType::Unknown(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PostType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "meta_event" => Ok(PostType::MetaEvent),
+            "response" => Ok(PostType::Response),
+            "message" => Ok(PostType::Message),
+            "message_sent" => Ok(PostType::MessageSent),
+            "notice" => Ok(PostType::Notice),
+            "request" => Ok(PostType::Request),
+            _ => Ok(PostType::Unknown(s)),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum MetaEvent {
     Lifecycle(Lifecycle),
     Heartbeat(Heartbeat),
 }
 
-/**
- * {
-    "time": 1756177908,
-    "self_id": 3775525519,
-    "post_type": "meta_event",
-    "meta_event_type": "heartbeat",
-    "status": {
-        "online": true,
-        "good": true
-    },
-    "interval": 60000
-}
- */
 #[derive(Debug)]
 pub struct Heartbeat {
     pub time: i64,
@@ -72,18 +96,6 @@ pub enum LifecycleSubType {
     Connect,
 }
 
-/*
-{
-    "status": "ok",
-    "retcode": 0,
-    "data": {
-        "message_id": 1936658337
-    },
-    "message": "",
-    "wording": "",
-    "echo": "b66ec140-7b5c-41fe-9422-b1ee89e4f89b"
-}
- */
 #[derive(Debug)]
 pub struct Response {
     pub status: String,
@@ -97,64 +109,6 @@ pub struct Response {
 #[derive(Debug)]
 pub struct Request {}
 
-/*
-{
-    "self_id": 3775525519,
-    "user_id": 815398013,
-    "time": 1756168635,
-    "message_id": 799899884,
-    "message_seq": 92,
-    "message_type": "private",
-    "sender": {
-        "user_id": 815398013,
-        "nickname": "　",
-        "card": ""
-    },
-    "raw_message": "33",
-    "font": 14,
-    "sub_type": "friend",
-    "message": [
-        {
-            "type": "text",
-            "data": {
-                "text": "33"
-            }
-        }
-    ],
-    "message_format": "array",
-    "post_type": "message"
-}
-
- {
-    "self_id": 3775525519,
-    "user_id": 815398013,
-    "time": 1756168837,
-    "message_id": 70440311,
-    "message_seq": 382,
-    "message_type": "group",
-    "sender": {
-        "user_id": 815398013,
-        "nickname": "　",
-        "card": "",
-        "role": "owner",
-        "title": ""
-    },
-    "raw_message": "3",
-    "font": 14,
-    "sub_type": "normal",
-    "message": [
-        {
-            "type": "text",
-            "data": {
-                "text": "3"
-            }
-        }
-    ],
-    "message_format": "array",
-    "post_type": "message",
-    "group_id": 559307734
-}
- */
 #[derive(Debug)]
 pub struct Message {
     pub self_id: i64,
@@ -200,76 +154,6 @@ pub struct Sender {
     pub title: String,
 }
 
-/*
-
-{
-    "type": "text",
-    "data": {
-        "text": "33"
-    }
-}
-
-    --
-
-           {
-            "type": "face",
-            "data": {
-                "id": "187",
-                "sub_type": 1
-            }
-        }
-
-    --
-
-                {
-            "type": "face",
-            "data": {
-                "id": "338",
-                "sub_type": 3
-            }
-        }
-
-        --
-
-                {
-            "type": "image",
-            "data": {
-                "file": "06B5164667AECA07BE7063487B0FE8BB.png",
-                "subType": 2,
-                "url": "https://multimedia.nt.qq.com.cn/download?appid=1407&fileid=EhQkEL7z20P2bcAws5tH_v8HMVVq5Ri5shUg_woo0oCVwKSnjwMyBHByb2RQgL2jAVoQQ0v9fc3pZu8zoidDsHeF9HoC1FY&spec=0&rkey=CAESME9sDrVVVyzMoGT09PHsf09Au0D248Da4C-M8_6RHrlp1glVCGxDFtNX1shylyxopg",
-                "file_size": "350521"
-            }
-        }
-        --
-
-                {
-            "type": "image",
-            "data": {
-                "file": "E98410F4B2AB990BB6285288F6896228.png",
-                "subType": 1,
-                "url": "https://multimedia.nt.qq.com.cn/download?appid=1407&fileid=EhTKREuLvwZvTt2YuLCnuoFStVCWbRjf8gkg_wookfmwzKSnjwMyBHByb2RQgL2jAVoQjyBWSYBnSNDxCu2VtwkXFHoCOgA&spec=0&rkey=CAESME9sDrVVVyzMoGT09PHsf09Au0D248Da4C-M8_6RHrlp1glVCGxDFtNX1shylyxopg",
-                "file_size": "162143"
-            }
-        }
-
-        --
-        {
-            "type": "at",
-            "data": {
-                "qq": "3775525519",
-                "name": "gg"
-            }
-        }
-
-        --
-
-                {
-            "type": "reply",
-            "data": {
-                "id": "1481434866"
-            }
-        },
- */
 #[derive(Debug, Clone)]
 pub enum MessageData {
     Text(MessageText),
@@ -322,7 +206,7 @@ impl serde::Serialize for MessageData {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageText {
     pub text: String,
 }
@@ -339,7 +223,7 @@ impl Into<MessageData> for MessageText {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageFace {
     pub id: String,
     pub sub_type: i64,
@@ -351,11 +235,14 @@ impl Into<MessageData> for MessageFace {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageImage {
     pub file: String,
+    #[serde(default)]
     pub sub_type: i64,
+    #[serde(default)]
     pub url: String,
+    #[serde(default, deserialize_with = "fuzzy_int")]
     pub file_size: i64,
 }
 
@@ -376,13 +263,13 @@ impl Into<MessageData> for MessageImage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageAt {
     pub qq: String,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageReply {
     pub id: i64,
 }
@@ -393,7 +280,7 @@ impl Into<MessageData> for MessageReply {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageForward {
     pub id: String,
 }
@@ -414,7 +301,6 @@ pub struct ForwardMessageNode {
 
 #[derive(Debug)]
 pub enum Notice {
-    // group_upload  group_admin group_decrease group_increase  group_ban friend_add group_recall friend_recall notify
     GroupUpload(GroupUpload),
     GroupAdmin(GroupAdmin),
     GroupDecrease(GroupDecrease),
@@ -427,7 +313,7 @@ pub enum Notice {
     Unknown(serde_json::Value),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NoticeType {
     GroupUpload,
     GroupAdmin,
@@ -440,6 +326,49 @@ pub enum NoticeType {
     Notify,
     Unknown(String),
 }
+
+
+impl serde::Serialize for NoticeType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            NoticeType::GroupUpload => serializer.serialize_str("group_upload"),
+            NoticeType::GroupAdmin => serializer.serialize_str("group_admin"),
+            NoticeType::GroupDecrease => serializer.serialize_str("group_decrease"),
+            NoticeType::GroupIncrease => serializer.serialize_str("group_increase"),
+            NoticeType::GroupBan => serializer.serialize_str("group_ban"),
+            NoticeType::FriendAdd => serializer.serialize_str("friend_add"),
+            NoticeType::GroupRecall => serializer.serialize_str("group_recall"),
+            NoticeType::FriendRecall => serializer.serialize_str("friend_recall"),
+            NoticeType::Notify => serializer.serialize_str("notify"),
+            NoticeType::Unknown(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for NoticeType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "group_upload" => Ok(NoticeType::GroupUpload),
+            "group_admin" => Ok(NoticeType::GroupAdmin),
+            "group_decrease" => Ok(NoticeType::GroupDecrease),
+            "group_increase" => Ok(NoticeType::GroupIncrease),
+            "group_ban" => Ok(NoticeType::GroupBan),
+            "friend_add" => Ok(NoticeType::FriendAdd),
+            "group_recall" => Ok(NoticeType::GroupRecall),
+            "friend_recall" => Ok(NoticeType::FriendRecall),
+            "notify" => Ok(NoticeType::Notify),
+            _ => Ok(NoticeType::Unknown(s)),
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct GroupUpload {
@@ -579,13 +508,43 @@ pub enum NotifySubType {
     Unknown(String),
 }
 
-#[derive(Debug)]
+impl serde::Serialize for NotifySubType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            NotifySubType::Poke => serializer.serialize_str("poke"),
+            NotifySubType::LuckyKing => serializer.serialize_str("lucky_king"),
+            NotifySubType::Honor => serializer.serialize_str("honor"),
+            NotifySubType::Unknown(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for NotifySubType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "poke" => Ok(NotifySubType::Poke),
+            "lucky_king" => Ok(NotifySubType::LuckyKing),
+            "honor" => Ok(NotifySubType::Honor),
+            _ => Ok(NotifySubType::Unknown(s)),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct Poke {
     pub time: i64,
     pub self_id: i64,
     pub post_type: PostType,
     pub notice_type: NoticeType,
     pub sub_type: NotifySubType,
+    #[serde(default)]
     pub group_id: i64,
     pub user_id: i64,
     pub target_id: i64,
@@ -992,6 +951,7 @@ impl MessageData {
         let r#type = r#type
             .as_str()
             .ok_or(Error::FieldError("type not found".to_string()))?;
+        let value = value.get("data").ok_or(Error::FieldError("data not found".to_string()))?;
         match r#type {
             "text" => Ok(MessageData::Text(MessageText::parse(value)?)),
             "face" => Ok(MessageData::Face(MessageFace::parse(value)?)),
@@ -1001,145 +961,6 @@ impl MessageData {
             "forward" => Ok(MessageData::Forward(MessageForward::parse(value)?)),
             _ => Ok(MessageData::Unknown(value.clone())),
         }
-    }
-}
-
-impl MessageText {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageText> {
-        let text = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let text = text
-            .get("text")
-            .ok_or(Error::FieldError("text not found".to_string()))?;
-        let text = text
-            .as_str()
-            .ok_or(Error::FieldError("text not found".to_string()))?;
-        Ok(MessageText {
-            text: text.to_string(),
-        })
-    }
-}
-
-impl MessageFace {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageFace> {
-        let id = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let id = id
-            .get("id")
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        let id = id
-            .as_str()
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        let sub_type = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let sub_type = sub_type
-            .get("sub_type")
-            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
-        let sub_type = sub_type
-            .as_i64()
-            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
-        Ok(MessageFace {
-            id: id.to_string(),
-            sub_type,
-        })
-    }
-}
-
-impl MessageImage {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageImage> {
-        let file = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let file = file
-            .as_str()
-            .ok_or(Error::FieldError("file not found".to_string()))?;
-        let sub_type = if let Some(sub_type) = value.get("data") {
-            sub_type
-                .as_i64()
-                .ok_or(Error::FieldError("sub_type not found".to_string()))?
-        } else {
-            0
-        };
-        let url = if let Some(url) = value.get("url") {
-            url.as_str()
-                .ok_or(Error::FieldError("url not found".to_string()))?
-                .to_string()
-        } else {
-            "".to_string()
-        };
-        let file_size = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let file_size = file_size
-            .get("file_size")
-            .ok_or(Error::FieldError("file_size not found".to_string()))?;
-        let file_size = file_size
-            .as_i64()
-            .ok_or(Error::FieldError("file_size not found".to_string()))?;
-        Ok(MessageImage {
-            file: file.to_string(),
-            sub_type,
-            url,
-            file_size,
-        })
-    }
-}
-
-impl MessageAt {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageAt> {
-        let data = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let qq = data
-            .get("qq")
-            .ok_or(Error::FieldError("qq not found".to_string()))?;
-        let qq = qq
-            .as_str()
-            .ok_or(Error::FieldError("qq not found".to_string()))?;
-        let name = if let Some(name) = data.get("name") {
-            name.as_str()
-                .ok_or(Error::FieldError("name not found".to_string()))?
-                .to_string()
-        } else {
-            "".to_string()
-        };
-        Ok(MessageAt {
-            qq: qq.to_string(),
-            name: name.to_string(),
-        })
-    }
-}
-
-impl MessageReply {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageReply> {
-        let id = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let id = id
-            .get("id")
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        let id = id
-            .as_i64()
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        Ok(MessageReply { id })
-    }
-}
-
-impl MessageForward {
-    pub fn parse(value: &serde_json::Value) -> Result<MessageForward> {
-        let data = value
-            .get("data")
-            .ok_or(Error::FieldError("data not found".to_string()))?;
-        let id = data
-            .get("id")
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        let id = id
-            .as_str()
-            .ok_or(Error::FieldError("id not found".to_string()))?;
-        Ok(MessageForward { id: id.to_string() })
     }
 }
 
@@ -1744,54 +1565,6 @@ impl Notify {
     }
 }
 
-impl Poke {
-    pub fn parse(value: &serde_json::Value) -> Result<Poke> {
-        let time = value
-            .get("time")
-            .ok_or(Error::FieldError("time not found".to_string()))?;
-        let time = time
-            .as_i64()
-            .ok_or(Error::FieldError("time not found".to_string()))?;
-        let self_id = value
-            .get("self_id")
-            .ok_or(Error::FieldError("self_id not found".to_string()))?;
-        let self_id = self_id
-            .as_i64()
-            .ok_or(Error::FieldError("self_id not found".to_string()))?;
-        let post_type = PostType::Notice;
-        let notice_type = NoticeType::Notify;
-        let sub_type = NotifySubType::Poke;
-        let group_id = value
-            .get("group_id")
-            .ok_or(Error::FieldError("group_id not found".to_string()))?;
-        let group_id = group_id
-            .as_i64()
-            .ok_or(Error::FieldError("group_id not found".to_string()))?;
-        let user_id = value
-            .get("user_id")
-            .ok_or(Error::FieldError("user_id not found".to_string()))?;
-        let user_id = user_id
-            .as_i64()
-            .ok_or(Error::FieldError("user_id not found".to_string()))?;
-        let target_id = value
-            .get("target_id")
-            .ok_or(Error::FieldError("target_id not found".to_string()))?;
-        let target_id = target_id
-            .as_i64()
-            .ok_or(Error::FieldError("target_id not found".to_string()))?;
-        Ok(Poke {
-            time,
-            self_id,
-            post_type,
-            notice_type,
-            sub_type,
-            group_id,
-            user_id,
-            target_id,
-        })
-    }
-}
-
 impl LuckyKing {
     pub fn parse(value: &serde_json::Value) -> Result<LuckyKing> {
         let time = value
@@ -1897,5 +1670,30 @@ impl Honor {
 impl Request {
     pub fn parse(_value: &serde_json::Value) -> Result<Request> {
         return Err(Error::FieldError("request unimplemented".to_string()));
+    }
+}
+
+fn fuzzy_int<'de, D, T>(d: D) -> std::result::Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: std::str::FromStr<Err = ParseIntError>,
+{
+    let value: serde_json::Value = serde::Deserialize::deserialize(d)?;
+    if value.is_number() {
+        let number = value.as_i64().unwrap();
+        let from: std::result::Result<T, ParseIntError> = std::str::FromStr::from_str(number.to_string().as_str());
+        match from {
+            Ok(from) => Ok(from),
+            Err(_) => Err(serde::de::Error::custom("parse error")),
+        }
+    } else if value.is_string() {
+        let str = value.as_str().unwrap();
+        let from: std::result::Result<T, ParseIntError> = std::str::FromStr::from_str(str);
+        match from {
+            Ok(from) => Ok(from),
+            Err(_) => Err(serde::de::Error::custom("parse error")),
+        }
+    } else {
+        Err(serde::de::Error::custom("type error"))
     }
 }
