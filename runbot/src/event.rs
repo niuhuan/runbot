@@ -536,6 +536,7 @@ pub enum Notify {
     Poke(Poke),
     LuckyKing(LuckyKing),
     Honor(Honor),
+    Unknown(serde_json::Value),
 }
 
 #[derive(Debug)]
@@ -543,6 +544,7 @@ pub enum NotifySubType {
     Poke,
     LuckyKing,
     Honor,
+    Unknown(String),
 }
 
 #[derive(Debug)]
@@ -604,6 +606,7 @@ impl Post {
         match post_type {
             "meta_event" => Ok(Post::MetaEvent(MetaEvent::parse(&value)?)),
             "message" => Ok(Post::Message(Message::parse(&value)?)),
+            "notice" => Ok(Post::Notice(Notice::parse(&value)?)),
             _ => Err(Error::FieldError("unknown post_type".to_string())),
         }
     }
@@ -1114,5 +1117,631 @@ impl Into<MessageData> for &str {
 impl Into<MessageData> for String {
     fn into(self) -> MessageData {
         MessageData::Text(MessageText { text: self })
+    }
+}
+
+impl Notice {
+    pub fn parse(value: &serde_json::Value) -> Result<Notice> {
+        let notice_type = value
+            .get("notice_type")
+            .ok_or(Error::FieldError("notice_type not found".to_string()))?;
+        let notice_type = notice_type
+            .as_str()
+            .ok_or(Error::FieldError("notice_type not found".to_string()))?;
+        match notice_type {
+            "group_upload" => Ok(Notice::GroupUpload(GroupUpload::parse(&value)?)),
+            "group_admin" => Ok(Notice::GroupAdmin(GroupAdmin::parse(&value)?)),
+            "group_decrease" => Ok(Notice::GroupDecrease(GroupDecrease::parse(&value)?)),
+            "group_increase" => Ok(Notice::GroupIncrease(GroupIncrease::parse(&value)?)),
+            "group_ban" => Ok(Notice::GroupBan(GroupBan::parse(&value)?)),
+            "friend_add" => Ok(Notice::FriendAdd(FriendAdd::parse(&value)?)),
+            "group_recall" => Ok(Notice::GroupRecall(GroupRecall::parse(&value)?)),
+            "friend_recall" => Ok(Notice::FriendRecall(FriendRecall::parse(&value)?)),
+            "notify" => Ok(Notice::Notify(Notify::parse(&value)?)),
+            _ => Ok(Notice::Unknown(value.clone())),
+        }
+    }
+}
+
+impl GroupUpload {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupUpload> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupUpload;
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let file = value
+            .get("file")
+            .ok_or(Error::FieldError("file not found".to_string()))?;
+        let file = GroupUploadFile::parse(&file)?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(GroupUpload {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            group_id,
+            user_id,
+            file,
+        })
+    }
+}
+
+impl GroupUploadFile {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupUploadFile> {
+        let id = value
+            .get("id")
+            .ok_or(Error::FieldError("id not found".to_string()))?;
+        let id = id
+            .as_str()
+            .ok_or(Error::FieldError("id not found".to_string()))?;
+        let name = value
+            .get("name")
+            .ok_or(Error::FieldError("name not found".to_string()))?;
+        let name = name
+            .as_str()
+            .ok_or(Error::FieldError("name not found".to_string()))?;
+        let size = value
+            .get("size")
+            .ok_or(Error::FieldError("size not found".to_string()))?;
+        let size = size
+            .as_i64()
+            .ok_or(Error::FieldError("size not found".to_string()))?;
+        let busid = value
+            .get("busid")
+            .ok_or(Error::FieldError("busid not found".to_string()))?;
+        let busid = busid
+            .as_i64()
+            .ok_or(Error::FieldError("busid not found".to_string()))?;
+        Ok(GroupUploadFile {
+            id: id.to_string(),
+            name: name.to_string(),
+            size,
+            busid: busid,
+        })
+    }
+}
+
+impl GroupAdmin {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupAdmin> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupAdmin;
+        let sub_type = value
+            .get("sub_type")
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = sub_type
+            .as_str()
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = match sub_type {
+            "set" => GroupAdminSubType::Set,
+            "unset" => GroupAdminSubType::UnSet,
+            _ => return Err(Error::FieldError("sub_type not found".to_string())),
+        };
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(GroupAdmin {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            user_id,
+        })
+    }
+}
+
+impl GroupDecrease {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupDecrease> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupDecrease;
+        let sub_type = value
+            .get("sub_type")
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = sub_type
+            .as_str()
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = match sub_type {
+            "leave" => GroupDecreaseSubType::Leave,
+            "kick" => GroupDecreaseSubType::Kick,
+            "kick_me" => GroupDecreaseSubType::KickMe,
+            _ => return Err(Error::FieldError("sub_type not found".to_string())),
+        };
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let operator_id = value
+            .get("operator_id")
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let operator_id = operator_id
+            .as_i64()
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(GroupDecrease {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            operator_id,
+            user_id,
+        })
+    }
+}
+
+impl GroupIncrease {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupIncrease> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupIncrease;
+        let sub_type = value
+            .get("sub_type")
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = sub_type
+            .as_str()
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = match sub_type {
+            "approve" => GroupIncreaseSubType::Approve,
+            "invite" => GroupIncreaseSubType::Invite,
+            _ => return Err(Error::FieldError("sub_type not found".to_string())),
+        };
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let operator_id = value
+            .get("operator_id")
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let operator_id = operator_id
+            .as_i64()
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(GroupIncrease {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            operator_id,
+            user_id,
+        })
+    }
+}
+
+impl GroupBan {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupBan> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupBan;
+        let sub_type = value
+            .get("sub_type")
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = sub_type
+            .as_str()
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = match sub_type {
+            "ban" => GroupBanSubType::Ban,
+            "lift_ban" => GroupBanSubType::LiftBan,
+            _ => return Err(Error::FieldError("sub_type not found".to_string())),
+        };
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let operator_id = value
+            .get("operator_id")
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let operator_id = operator_id
+            .as_i64()
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(GroupBan {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            operator_id,
+            user_id,
+        })
+    }
+}
+
+impl FriendAdd {
+    pub fn parse(value: &serde_json::Value) -> Result<FriendAdd> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::FriendAdd;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(FriendAdd {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            user_id,
+        })
+    }
+}
+
+impl GroupRecall {
+    pub fn parse(value: &serde_json::Value) -> Result<GroupRecall> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::GroupRecall;
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let operator_id = value
+            .get("operator_id")
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let operator_id = operator_id
+            .as_i64()
+            .ok_or(Error::FieldError("operator_id not found".to_string()))?;
+        let message_id = value
+            .get("message_id")
+            .ok_or(Error::FieldError("message_id not found".to_string()))?;
+        let message_id = message_id
+            .as_i64()
+            .ok_or(Error::FieldError("message_id not found".to_string()))?;
+        Ok(GroupRecall {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            group_id,
+            user_id,
+            operator_id,
+            message_id,
+        })
+    }
+}
+
+impl FriendRecall {
+    pub fn parse(value: &serde_json::Value) -> Result<FriendRecall> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::FriendRecall;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let message_id = value
+            .get("message_id")
+            .ok_or(Error::FieldError("message_id not found".to_string()))?;
+        let message_id = message_id
+            .as_i64()
+            .ok_or(Error::FieldError("message_id not found".to_string()))?;
+        Ok(FriendRecall {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            user_id,
+            message_id,
+        })
+    }
+}
+
+impl Notify {
+    pub fn parse(value: &serde_json::Value) -> Result<Notify> {
+        let sub_type = value
+            .get("sub_type")
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = sub_type
+            .as_str()
+            .ok_or(Error::FieldError("sub_type not found".to_string()))?;
+        let sub_type = match sub_type {
+            "poke" => NotifySubType::Poke,
+            "lucky_king" => NotifySubType::LuckyKing,
+            "honor" => NotifySubType::Honor,
+            _ => NotifySubType::Unknown(sub_type.to_string()),
+        };
+        let notify = match sub_type {
+            NotifySubType::Poke => Notify::Poke(Poke::parse(&value)?),
+            NotifySubType::LuckyKing => Notify::LuckyKing(LuckyKing::parse(&value)?),
+            NotifySubType::Honor => Notify::Honor(Honor::parse(&value)?),
+            NotifySubType::Unknown(_) => Notify::Unknown(value.clone()),
+        };
+        Ok(notify)
+    }
+}
+
+impl Poke {
+    pub fn parse(value: &serde_json::Value) -> Result<Poke> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::Notify;
+        let sub_type = NotifySubType::Poke;
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let target_id = value
+            .get("target_id")
+            .ok_or(Error::FieldError("target_id not found".to_string()))?;
+        let target_id = target_id
+            .as_i64()
+            .ok_or(Error::FieldError("target_id not found".to_string()))?;
+        Ok(Poke {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            user_id,
+            target_id,
+        })
+    }
+}
+
+impl LuckyKing {
+    pub fn parse(value: &serde_json::Value) -> Result<LuckyKing> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::Notify;
+        let sub_type = NotifySubType::LuckyKing;
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let target_id = value
+            .get("target_id")
+            .ok_or(Error::FieldError("target_id not found".to_string()))?;
+        let target_id = target_id
+            .as_i64()
+            .ok_or(Error::FieldError("target_id not found".to_string()))?;
+        Ok(LuckyKing {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            user_id,
+            target_id,
+        })
+    }
+}
+
+impl Honor {
+    pub fn parse(value: &serde_json::Value) -> Result<Honor> {
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let self_id = value
+            .get("self_id")
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let self_id = self_id
+            .as_i64()
+            .ok_or(Error::FieldError("self_id not found".to_string()))?;
+        let post_type = PostType::Notice;
+        let notice_type = NoticeType::Notify;
+        let sub_type = NotifySubType::Honor;
+        let group_id = value
+            .get("group_id")
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let group_id = group_id
+            .as_i64()
+            .ok_or(Error::FieldError("group_id not found".to_string()))?;
+        let honor_type = value
+            .get("honor_type")
+            .ok_or(Error::FieldError("honor_type not found".to_string()))?;
+        let honor_type = honor_type
+            .as_str()
+            .ok_or(Error::FieldError("honor_type not found".to_string()))?;
+        let honor_type = match honor_type {
+            "talkative" => HonorType::Talkative,
+            "performer" => HonorType::Performer,
+            "emotion" => HonorType::Emotion,
+            _ => return Err(Error::FieldError("honor_type not found".to_string())),
+        };
+        let user_id = value
+            .get("user_id")
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        let user_id = user_id
+            .as_i64()
+            .ok_or(Error::FieldError("user_id not found".to_string()))?;
+        Ok(Honor {
+            time,
+            self_id,
+            post_type,
+            notice_type,
+            sub_type,
+            group_id,
+            honor_type,
+            user_id,
+        })
     }
 }
