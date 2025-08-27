@@ -1,29 +1,37 @@
+use std::fmt::{self, Debug};
 use std::sync::Arc;
+use std::vec;
 
 use crate::error::{Error, Result};
 use crate::event::*;
 use crate::process::MessageProcessor;
+use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
+use tokio_tungstenite::{WebSocketStream, accept_async, connect_async};
 
 #[derive(Debug)]
 pub struct BotContext {
     connection: Mutex<Option<BotConnection>>,
-    pub url: String,
+    pub url: Option<String>,
     pub id: i64,
     pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
-    pub echo_notifer: Arc< DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
+    pub echo_notifer: Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
 }
 
-pub struct EchoAsyncResponse(String, tokio::sync::mpsc::Receiver<Response>, Arc< DashMap<String, tokio::sync::mpsc::Sender<Response>>>);
+pub struct EchoAsyncResponse(
+    String,
+    tokio::sync::mpsc::Receiver<Response>,
+    Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
+);
 
 impl Drop for EchoAsyncResponse {
     fn drop(&mut self) {
@@ -33,9 +41,7 @@ impl Drop for EchoAsyncResponse {
 
 impl EchoAsyncResponse {
     pub async fn wait_response(mut self, timeout: Duration) -> Result<Response> {
-        let r = tokio::time::timeout(timeout, async {
-            self.1.recv().await
-        }).await?;
+        let r = tokio::time::timeout(timeout, async { self.1.recv().await }).await?;
         Ok(r.ok_or(Error::StateError("response not received".to_string()))?)
     }
 }
@@ -59,7 +65,11 @@ impl SendMessageAsyncResponse {
 }
 
 impl BotContext {
-    pub async fn websocket_send(&self, action: &str, msg: serde_json::Value) -> Result<EchoAsyncResponse> {
+    pub async fn websocket_send(
+        &self,
+        action: &str,
+        msg: serde_json::Value,
+    ) -> Result<EchoAsyncResponse> {
         let echo = uuid::Uuid::new_v4().to_string();
         let (sender, receiver) = tokio::sync::mpsc::channel::<Response>(1);
         self.echo_notifer.insert(echo.clone(), sender);
@@ -92,7 +102,9 @@ impl BotContext {
                 "message": message.json()?,
             }
         );
-        self.websocket_send("send_private_msg", msg).await.map(|r| SendMessageAsyncResponse(r))
+        self.websocket_send("send_private_msg", msg)
+            .await
+            .map(|r| SendMessageAsyncResponse(r))
     }
 
     pub async fn send_group_message(
@@ -106,7 +118,9 @@ impl BotContext {
                 "message": message.json()?,
             }
         );
-        self.websocket_send("send_group_msg", msg).await.map(|r| SendMessageAsyncResponse(r))
+        self.websocket_send("send_group_msg", msg)
+            .await
+            .map(|r| SendMessageAsyncResponse(r))
     }
 
     pub async fn send_message(
@@ -132,9 +146,9 @@ impl BotContext {
 }
 
 impl BotContext {
-    async fn set_connection(&self, connection: BotConnection) {
+    async fn set_connection(&self, connection: impl Into<Option<BotConnection>>) {
         let mut connection_lock = self.connection.lock().await;
-        *connection_lock = Some(connection);
+        *connection_lock = connection.into();
     }
 
     async fn handle_receive(&self, bot_ctx: Arc<BotContext>, msg: &Message) {
@@ -150,10 +164,10 @@ impl BotContext {
                             tracing::debug!("WS received: {:?}", response);
                             if let Some(v) = bot_ctx.echo_notifer.remove(&response.echo) {
                                 match v.1.send(response).await {
-                                    Ok(_) => {},
+                                    Ok(_) => {}
                                     Err(err) => {
                                         tracing::warn!("echo map error : {:?}", err);
-                                    },
+                                    }
                                 }
                             }
                         }
@@ -169,6 +183,9 @@ impl BotContext {
                                 }
                             });
                         }
+                        Post::Notice(_) => {
+                            //
+                        }
                     },
                     Err(e) => {
                         tracing::error!("WS received: {:?}", e);
@@ -182,18 +199,41 @@ impl BotContext {
     }
 }
 
-#[derive(Debug)]
-struct BotConnection {
-    sender: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+#[async_trait]
+pub trait WsWriter {
+    async fn send_raw(&mut self, msg: String) -> Result<()>;
 }
 
-impl BotConnection {
-    pub async fn send_raw(&mut self, msg: String) -> Result<()> {
-        self.sender.send(Message::Text(msg.into())).await?;
+// 泛型实现
+#[async_trait]
+impl<S> WsWriter for SplitSink<WebSocketStream<S>, Message>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    async fn send_raw(&mut self, msg: String) -> Result<()> {
+        self.send(Message::Text(msg.into())).await?;
         Ok(())
     }
 }
 
+struct BotConnection {
+    sender: Box<dyn WsWriter + Send + Sync>,
+}
+
+impl BotConnection {
+    pub async fn send_raw(&mut self, msg: String) -> Result<()> {
+        self.sender.send_raw(msg).await?;
+        Ok(())
+    }
+}
+
+impl fmt::Debug for BotConnection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BotConnection")
+            .field("sender", &"Box<dyn WsWriter>")
+            .finish()
+    }
+}
 pub struct BotContextBuilder {
     pub url: Option<String>,
     pub message_processors: Vec<Box<dyn MessageProcessor>>,
@@ -225,11 +265,7 @@ impl BotContextBuilder {
     pub fn build(self) -> Result<Arc<BotContext>> {
         Ok(Arc::new(BotContext {
             connection: Mutex::new(None),
-            url: if let Some(url) = self.url {
-                url
-            } else {
-                return Err(Error::ParamsError("url is required".to_string()));
-            },
+            url: self.url,
             id: 0,
             message_processors: Arc::new(self.message_processors),
             echo_notifer: Arc::new(DashMap::new()),
@@ -237,33 +273,115 @@ impl BotContextBuilder {
     }
 }
 
-pub async fn loop_bot(bot_ctx: Arc<BotContext>) {
-    loop {
-        match connect_async(&bot_ctx.url).await {
-            Ok((ws_stream, _)) => {
-                tracing::info!("WS {} Connected!", bot_ctx.url);
-                let (ws_sink, mut split_stream) = ws_stream.split();
-                let connection = BotConnection { sender: ws_sink };
-                bot_ctx.set_connection(connection).await;
-                // 添加循环来持续处理 WebSocket 消息
-                while let Some(msg) = split_stream.next().await {
-                    match msg {
-                        Ok(m) => {
-                            let bot_ctx = bot_ctx.clone();
-                            _ = tokio::spawn(async move {
-                                bot_ctx.handle_receive(bot_ctx.clone(), &m).await
-                            });
-                        },
-                        Err(e) => {
-                            tracing::error!("WS {} error: {:?}", &bot_ctx.url, e);
-                            break; // 断开则退出内层循环，重连
-                        }
-                    }
-                }
-            }
-            Err(e) => tracing::error!("WS {} connect error: {:?}", &bot_ctx.url, e),
+pub struct BotServer {
+    pub bind: String,
+    pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
+}
+
+pub struct BotServerBuilder {
+    pub bind: Option<String>,
+    pub message_processors: Vec<Box<dyn MessageProcessor>>,
+}
+
+impl BotServerBuilder {
+    pub fn new() -> Self {
+        Self {
+            bind: None,
+            message_processors: vec![],
         }
-        tracing::info!("WS {} reconnecting after 15s...", &bot_ctx.url);
+    }
+
+    pub fn bind(mut self, bind: impl Into<String>) -> Self {
+        self.bind = Some(bind.into());
+        self
+    }
+
+    pub fn add_message_processor(
+        mut self,
+        processor: impl MessageProcessor + Copy + 'static,
+    ) -> Self {
+        self.message_processors.push(Box::new(processor));
+        self
+    }
+
+    pub fn build(self) -> Result<Arc<BotServer>> {
+        Ok(Arc::new(BotServer {
+            bind: if let Some(bind) = self.bind {
+                bind
+            } else {
+                return Err(Error::ParamsError("bind must be set".to_string()));
+            },
+            message_processors: Arc::new(self.message_processors),
+        }))
+    }
+}
+
+async fn loop_bot<S>(bot_ctx: Arc<BotContext>, ws_stream: WebSocketStream<S>)
+where
+    S: AsyncRead + AsyncWrite + Sync + Send + Unpin + 'static,
+{
+    let (ws_sink, mut split_stream) = ws_stream.split();
+    let connection = BotConnection {
+        sender: Box::new(ws_sink),
+    };
+    bot_ctx.set_connection(connection).await;
+    while let Some(msg) = split_stream.next().await {
+        match msg {
+            Ok(m) => {
+                let bot_ctx = bot_ctx.clone();
+                _ = tokio::spawn(async move { bot_ctx.handle_receive(bot_ctx.clone(), &m).await });
+            }
+            Err(e) => {
+                tracing::error!("WS error: {:?}", e);
+                break; // 断开则退出内层循环，重连
+            }
+        }
+    }
+    bot_ctx.set_connection(None).await;
+}
+
+pub async fn loop_server(bot_server: Arc<BotServer>) -> Result<()> {
+    // 监听本地 9001 端口
+    let listener = TcpListener::bind(&bot_server.bind).await.unwrap();
+    println!("WebSocket server started on ws://{}", &bot_server.bind);
+    while let Ok((stream, _)) = listener.accept().await {
+        let message_processors = bot_server.message_processors.clone();
+        tokio::spawn(async move {
+            // 协议升级为 WebSocket
+            let ws_stream = accept_async(stream).await.unwrap();
+            loop_bot(
+                Arc::new(BotContext {
+                    connection: Mutex::new(None),
+                    url: None,
+                    id: 0,
+                    message_processors: message_processors,
+                    echo_notifer: Arc::new(DashMap::new()),
+                }),
+                ws_stream,
+            )
+            .await;
+        });
+    }
+    Ok(())
+}
+
+pub async fn loop_client(bot_ctx: Arc<BotContext>) -> Result<()> {
+    let url = bot_ctx
+        .url
+        .as_ref()
+        .ok_or(Error::ParamsError(
+            "url must be set for loop client".to_string(),
+        ))
+        .map(|e| e.clone())?;
+    loop {
+        match connect_async(&url).await {
+            Ok((ws_stream, _)) => {
+                tracing::info!("WS {} Connected!", &url);
+                let _ = loop_bot(bot_ctx.clone(), ws_stream).await;
+            }
+            Err(e) => tracing::error!("WS {} connect error: {:?}", &url, e),
+        }
+        tracing::info!("WS {} reconnecting after 15s...", &url);
         sleep(Duration::from_secs(15)).await;
     }
 }

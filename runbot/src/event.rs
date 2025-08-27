@@ -7,12 +7,15 @@ pub enum Post {
     MetaEvent(MetaEvent),
     Response(Response),
     Message(Message),
+    Notice(Notice),
 }
 
 #[derive(Debug)]
 pub enum PostType {
     MetaEvent,
+    Response,
     Message,
+    Notice,
 }
 
 #[derive(Debug)]
@@ -272,23 +275,28 @@ impl serde::Serialize for MessageData {
             MessageData::Text(text) => json!({
                 "type": "text",
                 "data": text,
-            }).serialize(serializer),
+            })
+            .serialize(serializer),
             MessageData::Face(face) => json!({
                 "type": "face",
                 "data": face,
-            }).serialize(serializer),
+            })
+            .serialize(serializer),
             MessageData::Image(image) => json!({
                 "type": "image",
                 "data": image,
-            }).serialize(serializer),
+            })
+            .serialize(serializer),
             MessageData::At(at) => json!({
                 "type": "at",
                 "data": at,
-            }).serialize(serializer),
+            })
+            .serialize(serializer),
             MessageData::Reply(reply) => json!({
                 "type": "reply",
                 "data": reply,
-            }).serialize(serializer),
+            })
+            .serialize(serializer),
             MessageData::Unknown(value) => value.clone().serialize(serializer),
         }
     }
@@ -333,7 +341,12 @@ pub struct MessageImage {
 
 impl MessageImage {
     pub fn new(file: impl Into<String>) -> Self {
-        Self { file: file.into(), sub_type: 0, url: "".into(), file_size: 0 }
+        Self {
+            file: file.into(),
+            sub_type: 0,
+            url: "".into(),
+            file_size: 0,
+        }
     }
 }
 
@@ -363,6 +376,216 @@ impl Into<MessageData> for MessageReply {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageDataType {
     Text,
+}
+
+// {"time":1756269347,"self_id":3775525519,"post_type":"notice","notice_type":"friend_recall","user_id":3775525519,"message_id":2127463818}
+
+#[derive(Debug)]
+pub enum Notice {
+    // group_upload  group_admin group_decrease group_increase  group_ban friend_add group_recall friend_recall notify
+    GroupUpload(GroupUpload),
+    GroupAdmin(GroupAdmin),
+    GroupDecrease(GroupDecrease),
+    GroupIncrease(GroupIncrease),
+    GroupBan(GroupBan),
+    FriendAdd(FriendAdd),
+    GroupRecall(GroupRecall),
+    FriendRecall(FriendRecall),
+    Notify(Notify),
+    Unknown(serde_json::Value),
+}
+
+#[derive(Debug)]
+pub enum NoticeType {
+    GroupUpload,
+    GroupAdmin,
+    GroupDecrease,
+    GroupIncrease,
+    GroupBan,
+    FriendAdd,
+    GroupRecall,
+    FriendRecall,
+    Notify,
+    Unknown(String),
+}
+
+#[derive(Debug)]
+pub struct GroupUpload {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub group_id: i64,
+    pub user_id: i64,
+    pub file: GroupUploadFile,
+}
+
+#[derive(Debug)]
+pub struct GroupUploadFile {
+    pub id: String,
+    pub name: String,
+    pub size: i64,
+    pub busid: i64,
+}
+
+#[derive(Debug)]
+pub struct GroupAdmin {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: GroupAdminSubType,
+    pub group_id: i64,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub enum GroupAdminSubType {
+    Set,
+    UnSet,
+}
+
+#[derive(Debug)]
+pub struct GroupDecrease {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: GroupDecreaseSubType,
+    pub group_id: i64,
+    pub operator_id: i64,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub enum GroupDecreaseSubType {
+    Leave,
+    Kick,
+    KickMe,
+}
+
+#[derive(Debug)]
+pub struct GroupIncrease {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: GroupIncreaseSubType,
+    pub group_id: i64,
+    pub operator_id: i64,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub enum GroupIncreaseSubType {
+    Approve,
+    Invite,
+}
+
+#[derive(Debug)]
+pub struct GroupBan {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: GroupBanSubType,
+    pub group_id: i64,
+    pub operator_id: i64,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub enum GroupBanSubType {
+    Ban,
+    LiftBan,
+}
+
+#[derive(Debug)]
+pub struct FriendAdd {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub struct GroupRecall {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub group_id: i64,
+    pub user_id: i64,
+    pub operator_id: i64,
+    pub message_id: i64,
+}
+
+#[derive(Debug)]
+pub struct FriendRecall {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub user_id: i64,
+    pub message_id: i64,
+}
+
+#[derive(Debug)]
+pub enum Notify {
+    Poke(Poke),
+    LuckyKing(LuckyKing),
+    Honor(Honor),
+}
+
+#[derive(Debug)]
+pub enum NotifySubType {
+    Poke,
+    LuckyKing,
+    Honor,
+}
+
+#[derive(Debug)]
+pub struct Poke {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: NotifySubType,
+    pub group_id: i64,
+    pub user_id: i64,
+    pub target_id: i64,
+}
+
+#[derive(Debug)]
+pub struct LuckyKing {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: NotifySubType,
+    pub group_id: i64,
+    pub user_id: i64,
+    pub target_id: i64,
+}
+
+#[derive(Debug)]
+pub struct Honor {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub notice_type: NoticeType,
+    pub sub_type: NotifySubType,
+    pub group_id: i64,
+    pub honor_type: HonorType,
+    pub user_id: i64,
+}
+
+#[derive(Debug)]
+pub enum HonorType {
+    Talkative,
+    Performer,
+    Emotion,
 }
 
 impl Post {
@@ -882,7 +1105,9 @@ impl SendMessage for MessageChain {
 
 impl Into<MessageData> for &str {
     fn into(self) -> MessageData {
-        MessageData::Text(MessageText { text: self.to_string() })
+        MessageData::Text(MessageText {
+            text: self.to_string(),
+        })
     }
 }
 
