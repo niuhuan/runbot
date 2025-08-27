@@ -3,9 +3,11 @@ RUNBOT
 
 Rust one bot v11 协议 （ 正向ws / 反向ws ）
 
-- [x] 监听消息
-- [x] 发送文本、图片、自定义onebot11JSON消息
+- [x] 监听私聊、群消息
+- [x] 监听onebotv11协议中支持的事件
+- [x] 发送文本、图片、自定义onebot11JSON消息 到 私聊、组群
 - [x] 接受Response回执
+- [ ] 组群管理、添加好友
 
 ## 使用
 
@@ -60,6 +62,16 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
 
 ![hello](images/hello.png)
 
+
+#### 监听事件
+
+```rust
+#[notice_processor]
+pub async fn demo_notice_processor_fn(
+    bot_ctx: Arc<BotContext>,
+    notice: Arc<Notice>,
+) -> Result<bool>
+```
 
 #### 消息链 (发送图片)
 

@@ -8,5 +8,5 @@ pub mod prelude {
     pub use crate::connection::*;
     pub use crate::event::*;
     pub use crate::process::*;
-    pub use runbot_codegen::message_processor;
+    pub use runbot_codegen::{message_processor, notice_processor};
 }

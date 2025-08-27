@@ -9,14 +9,18 @@ async fn main() {
         .init();
     let bot_ctx = BotContextBuilder::new()
         .url("ws://localhost:3001")
-        .add_message_processor(DEMO_PROCESSOR_FN)
+        .add_message_processor(DEMO_MESSAGE_PROCESSOR_FN)
+        .add_notice_processor(DEMO_NOTICE_PROCESSOR_FN)
         .build()
         .unwrap();
     loop_client(bot_ctx).await.unwrap();
 }
 
 #[message_processor]
-pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) -> Result<bool> {
+pub async fn demo_message_processor_fn(
+    bot_ctx: Arc<BotContext>,
+    message: Arc<Message>,
+) -> Result<bool> {
     if message.raw_message.eq("hello") {
         if let MessageSubType::Friend = message.sub_type {
             let async_response = bot_ctx
@@ -24,11 +28,34 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
                 .await?;
             let bot_ctx = bot_ctx.clone();
             tokio::spawn(async move {
-                let msg_id = async_response.wait_response(Duration::from_secs(3)).await.unwrap().message_id;
+                let msg_id = async_response
+                    .wait_response(Duration::from_secs(3))
+                    .await
+                    .unwrap()
+                    .message_id;
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 bot_ctx.delete_msg(msg_id).await.unwrap();
             });
         }
+    }
+    Ok(true)
+}
+
+#[notice_processor]
+pub async fn demo_notice_processor_fn(
+    bot_ctx: Arc<BotContext>,
+    notice: Arc<Notice>,
+) -> Result<bool> {
+    match notice.as_ref() {
+        Notice::FriendRecall(friend_recall) => {
+            bot_ctx
+                .send_private_message(
+                    friend_recall.user_id,
+                    format!("{} 撤回了一条消息", friend_recall.user_id),
+                )
+                .await?;
+        }
+        _ => {}
     }
     Ok(true)
 }

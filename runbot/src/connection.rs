@@ -159,10 +159,10 @@ impl BotContext {
                 match parse_post(text) {
                     Ok(post) => match post {
                         Post::MetaEvent(meta_event) => {
-                            tracing::debug!("WS received: {:?}", meta_event);
+                            tracing::debug!("parse to meta_event : {:?}", meta_event);
                         }
                         Post::Response(response) => {
-                            tracing::debug!("WS received: {:?}", response);
+                            tracing::debug!("parse to reponse : {:?}", response);
                             if let Some(v) = bot_ctx.echo_notifer.remove(&response.echo) {
                                 match v.1.send(response).await {
                                     Ok(_) => {}
@@ -173,7 +173,7 @@ impl BotContext {
                             }
                         }
                         Post::Message(message) => {
-                            tracing::debug!("WS received: {:?}", message);
+                            tracing::debug!("parse to message: {:?}", message);
                             let message = Arc::new(message);
                             let message_processors = self.message_processors.clone();
                             tokio::spawn(async move {
@@ -196,7 +196,7 @@ impl BotContext {
                             });
                         }
                         Post::Notice(notice) => {
-                            tracing::debug!("WS received: {:?}", notice);
+                            tracing::debug!("parse to notice: {:?}", notice);
                             let notice = Arc::new(notice);
                             let notice_processors = self.notice_processors.clone();
                             tokio::spawn(async move {
