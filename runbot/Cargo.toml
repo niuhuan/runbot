@@ -2,6 +2,9 @@
 name = "runbot"
 version.workspace = true
 edition = "2024"
+description = "QQ client framework"
+license = "MPL2"
+repository = "https://github.com/niuhuan/runbot"
 
 [dependencies]
 futures-util = "0.3"
@@ -16,7 +19,7 @@ uuid = { version = "1.18", features = ["v4"] }
 runbot-codegen = { path = "../runbot-codegen" }
 anyhow = "1.0"
 async-trait = "0.1"
-dashmap = "6.1.0"
+dashmap = "6.1"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

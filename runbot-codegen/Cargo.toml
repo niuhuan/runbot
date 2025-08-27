@@ -2,14 +2,17 @@
 name = "runbot-codegen"
 version.workspace = true
 edition = "2024"
+description = "QQ client framework"
+license = "MPL2"
+repository = "https://github.com/niuhuan/runbot"
 
 [dependencies]
-darling = "0.20.10"
-proc-macro-error = "1.0.4"
-proc-macro2 = "1.0.92"
-proc-macro2-diagnostics = "0.10.1"
-quote = "1.0.38"
-syn = { version = "2.0.95", features = ["full"] }
+darling = "0.20"
+proc-macro-error = "1.0"
+proc-macro2 = "1.0"
+proc-macro2-diagnostics = "0.10"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
 
 [lib]
 proc-macro = true
