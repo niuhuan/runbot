@@ -94,10 +94,8 @@ pub struct Response {
     pub echo: String,
 }
 
-
 #[derive(Debug)]
-pub struct Request {
-}
+pub struct Request {}
 
 /*
 {
@@ -170,24 +168,30 @@ pub struct Message {
     pub font: i64,
     pub sub_type: MessageSubType,
     pub message: Vec<MessageData>,
-    pub message_format: String,
+    pub message_format: MessageFormat,
     pub post_type: PostType,
     pub group_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MessageType {
     Private,
     Group,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub enum MessageFormat {
+    Array,
+    String,
+}
+
+#[derive(Debug, Clone)]
 pub enum MessageSubType {
     Friend,
     Normal,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sender {
     pub user_id: i64,
     pub nickname: String,
@@ -273,6 +277,7 @@ pub enum MessageData {
     Image(MessageImage),
     At(MessageAt),
     Reply(MessageReply),
+    Forward(MessageForward),
     Unknown(serde_json::Value),
 }
 
@@ -305,6 +310,11 @@ impl serde::Serialize for MessageData {
             MessageData::Reply(reply) => json!({
                 "type": "reply",
                 "data": reply,
+            })
+            .serialize(serializer),
+            MessageData::Forward(forward) => json!({
+                "type": "forward",
+                "data": forward,
             })
             .serialize(serializer),
             MessageData::Unknown(value) => value.clone().serialize(serializer),
@@ -384,11 +394,23 @@ impl Into<MessageData> for MessageReply {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MessageDataType {
-    Text,
+pub struct MessageForward {
+    pub id: String,
 }
 
-// {"time":1756269347,"self_id":3775525519,"post_type":"notice","notice_type":"friend_recall","user_id":3775525519,"message_id":2127463818}
+#[derive(Debug, Clone)]
+pub struct ForwardMessage {
+    pub messages: Vec<ForwardMessageNode>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ForwardMessageNode {
+    pub content: Vec<MessageData>,
+    pub sender: Sender,
+    pub time: i64,
+    pub message_format: MessageFormat,
+    pub message_type: MessageType,
+}
 
 #[derive(Debug)]
 pub enum Notice {
@@ -882,6 +904,7 @@ impl Message {
         let message_format = message_format
             .as_str()
             .ok_or(Error::FieldError("message_format not found".to_string()))?;
+        let message_format = MessageFormat::parse(message_format)?;
         let post_type = value
             .get("post_type")
             .ok_or(Error::FieldError("post_type not found".to_string()))?;
@@ -908,7 +931,7 @@ impl Message {
             font,
             sub_type,
             message,
-            message_format: message_format.to_string(),
+            message_format,
             post_type: post_type,
             group_id,
         })
@@ -929,12 +952,13 @@ impl Sender {
         let nickname = nickname
             .as_str()
             .ok_or(Error::FieldError("nickname not found".to_string()))?;
-        let card = value
-            .get("card")
-            .ok_or(Error::FieldError("card not found".to_string()))?;
-        let card = card
-            .as_str()
-            .ok_or(Error::FieldError("card not found".to_string()))?;
+        let card = if let Some(card) = value.get("card") {
+            card.as_str()
+                .ok_or(Error::FieldError("card not found".to_string()))?
+                .to_string()
+        } else {
+            "".to_string()
+        };
         let role = if let Some(role) = value.get("role") {
             role.as_str()
                 .ok_or(Error::FieldError("role not found".to_string()))?
@@ -974,6 +998,7 @@ impl MessageData {
             "image" => Ok(MessageData::Image(MessageImage::parse(value)?)),
             "at" => Ok(MessageData::At(MessageAt::parse(value)?)),
             "reply" => Ok(MessageData::Reply(MessageReply::parse(value)?)),
+            "forward" => Ok(MessageData::Forward(MessageForward::parse(value)?)),
             _ => Ok(MessageData::Unknown(value.clone())),
         }
     }
@@ -1103,6 +1128,21 @@ impl MessageReply {
     }
 }
 
+impl MessageForward {
+    pub fn parse(value: &serde_json::Value) -> Result<MessageForward> {
+        let data = value
+            .get("data")
+            .ok_or(Error::FieldError("data not found".to_string()))?;
+        let id = data
+            .get("id")
+            .ok_or(Error::FieldError("id not found".to_string()))?;
+        let id = id
+            .as_str()
+            .ok_or(Error::FieldError("id not found".to_string()))?;
+        Ok(MessageForward { id: id.to_string() })
+    }
+}
+
 pub fn parse_post(text: &str) -> Result<Post> {
     let value: serde_json::Value = serde_json::from_str(text)?;
     Post::parse(&value)
@@ -1143,6 +1183,88 @@ impl Into<MessageData> for &str {
 impl Into<MessageData> for String {
     fn into(self) -> MessageData {
         MessageData::Text(MessageText { text: self })
+    }
+}
+
+impl MessageType {
+    pub fn parse(value: &str) -> Result<MessageType> {
+        match value {
+            "private" => Ok(MessageType::Private),
+            "group" => Ok(MessageType::Group),
+            _ => Err(Error::FieldError("unknown message_type".to_string())),
+        }
+    }
+}
+
+impl MessageFormat {
+    pub fn parse(value: &str) -> Result<MessageFormat> {
+        match value {
+            "array" => Ok(MessageFormat::Array),
+            "string" => Ok(MessageFormat::String),
+            _ => Err(Error::FieldError("unknown message_format".to_string())),
+        }
+    }
+}
+
+impl ForwardMessage {
+    pub fn parse(value: &serde_json::Value) -> Result<ForwardMessage> {
+        let messages = value
+            .get("messages")
+            .ok_or(Error::FieldError("messages not found".to_string()))?;
+        let messages = messages
+            .as_array()
+            .ok_or(Error::FieldError("messages not found".to_string()))?;
+        let messages = messages
+            .iter()
+            .map(|v| ForwardMessageNode::parse(v))
+            .collect::<Result<Vec<ForwardMessageNode>>>()?;
+        Ok(ForwardMessage { messages })
+    }
+}
+
+impl ForwardMessageNode {
+    pub fn parse(value: &serde_json::Value) -> Result<ForwardMessageNode> {
+        let content = value
+            .get("content")
+            .ok_or(Error::FieldError("content not found".to_string()))?;
+        let content = content
+            .as_array()
+            .ok_or(Error::FieldError("content not found".to_string()))?;
+        let content = content
+            .iter()
+            .map(|v| MessageData::parse(v))
+            .collect::<Result<Vec<MessageData>>>()?;
+        let sender = value
+            .get("sender")
+            .ok_or(Error::FieldError("sender not found".to_string()))?;
+        let sender = Sender::parse(sender)?;
+        let time = value
+            .get("time")
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let time = time
+            .as_i64()
+            .ok_or(Error::FieldError("time not found".to_string()))?;
+        let message_format = value
+            .get("message_format")
+            .ok_or(Error::FieldError("message_format not found".to_string()))?;
+        let message_format = message_format
+            .as_str()
+            .ok_or(Error::FieldError("message_format not found".to_string()))?;
+        let message_format = MessageFormat::parse(message_format)?;
+        let message_type = value
+            .get("message_type")
+            .ok_or(Error::FieldError("message_type not found".to_string()))?;
+        let message_type = message_type
+            .as_str()
+            .ok_or(Error::FieldError("message_type not found".to_string()))?;
+        let message_type = MessageType::parse(message_type)?;
+        Ok(ForwardMessageNode {
+            content,
+            sender,
+            time,
+            message_format,
+            message_type,
+        })
     }
 }
 
