@@ -136,7 +136,7 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
   - [x] 同意好友请求、同意进群请求
   - [ ] 获取群荣誉信息
   - [ ] 获取 Cookies、获取 CSRF Token、获取 QQ 相关接口凭证
-  - [ ] 获取语音、获取图片、检查是否可以发送图片、检查是否可以发送语音
+  - [x] 获取语音、获取图片、检查是否可以发送图片、检查是否可以发送语音
   - [ ] 获取运行状态、获取版本信息、重启 OneBot 实现、清理缓存
   - [ ] ...
 - [x] 类型

@@ -17,3 +17,7 @@ pub mod get_group_info;
 pub mod get_group_list;
 pub mod get_group_member_info;
 pub mod get_group_member_list;
+pub mod get_record;
+pub mod get_image;
+pub mod can_send_image;
+pub mod can_send_record;
