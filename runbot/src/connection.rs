@@ -195,6 +195,40 @@ impl BotContext {
             .await
     }
 
+    pub async fn set_friend_add_request(
+        &self,
+        flag: &str,
+        approve: bool,
+        remark: Option<&str>,
+    ) -> Result<EchoAsyncResponse> {
+        let msg = json!(
+            {
+                "flag": flag,
+                "approve": approve,
+                "remark": remark,
+            }
+        );
+        self.websocket_send("set_friend_add_request", msg).await
+    }
+
+    pub async fn set_group_add_request(
+        &self,
+        flag: &str,
+        approve: bool,
+        sub_type: GroupRequestSubType,
+        remark: Option<&str>,
+    ) -> Result<EchoAsyncResponse> {
+        let msg = json!(
+            {
+                "flag": flag,
+                "approve": approve,
+                "sub_type": sub_type,
+                "remark": remark,
+            }
+        );
+        self.websocket_send("set_group_add_request", msg).await
+    }
+
 }
 
 impl BotContext {

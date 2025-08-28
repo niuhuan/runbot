@@ -483,8 +483,8 @@ pub enum HonorType {
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::UnknownEnumSerdeAndParse)]
 #[enum_field(name = "request_type")]
 pub enum Request {
-    FriendRequest(FriendRequest),
-    GroupRequest(GroupRequest),
+    Friend(FriendRequest),
+    Group(GroupRequest),
     Unknown(serde_json::Value),
 }
 

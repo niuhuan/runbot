@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "runbot"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "runbot-codegen"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "convert_case",
  "darling",
