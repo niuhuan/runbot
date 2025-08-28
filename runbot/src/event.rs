@@ -130,6 +130,7 @@ pub enum MessageData {
     Face(MessageFace),
     Image(MessageImage),
     Record(MessageRecord),
+    Video(MessageVideo),
     At(MessageAt),
     Reply(MessageReply),
     Forward(MessageForward),
@@ -160,6 +161,11 @@ impl serde::Serialize for MessageData {
             MessageData::Record(record) => json!({
                 "type": "record",
                 "data": record,
+            })
+            .serialize(serializer),
+            MessageData::Video(video) => json!({
+                "type": "video",
+                "data": video,
             })
             .serialize(serializer),
             MessageData::At(at) => json!({
@@ -224,6 +230,17 @@ pub struct MessageImage {
 
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageRecord {
+    pub file: String,
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default, deserialize_with = "fuzzy_int")]
+    pub file_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+pub struct MessageVideo {
     pub file: String,
     #[serde(default)]
     pub path: String,
@@ -855,6 +872,7 @@ impl MessageData {
             "face" => Ok(MessageData::Face(MessageFace::parse(value)?)),
             "image" => Ok(MessageData::Image(MessageImage::parse(value)?)),
             "record" => Ok(MessageData::Record(MessageRecord::parse(value)?)),
+            "video" => Ok(MessageData::Video(MessageVideo::parse(value)?)),
             "at" => Ok(MessageData::At(MessageAt::parse(value)?)),
             "reply" => Ok(MessageData::Reply(MessageReply::parse(value)?)),
             "forward" => Ok(MessageData::Forward(MessageForward::parse(value)?)),
