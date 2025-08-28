@@ -1,5 +1,5 @@
 [workspace]
-package.version = "0.0.3"
+package.version = "0.0.4"
 resolver = "3"
 members = [
     "runbot",
