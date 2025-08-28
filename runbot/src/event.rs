@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Post {
     MetaEvent(MetaEvent),
     Response(Response),
@@ -12,6 +12,7 @@ pub enum Post {
     Notice(Notice),
     Request(Request),
     MessageSent(Message),
+    Unknown(serde_json::Value),
 }
 
 #[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
@@ -25,13 +26,13 @@ pub enum PostType {
     Unknown(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MetaEvent {
     Lifecycle(Lifecycle),
     Heartbeat(Heartbeat),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Heartbeat {
     pub time: i64,
     pub self_id: i64,
@@ -40,13 +41,13 @@ pub struct Heartbeat {
     pub interval: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HeartbeatStatus {
     pub online: bool,
     pub good: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lifecycle {
     pub time: i64,
     pub self_id: i64,
@@ -54,14 +55,14 @@ pub struct Lifecycle {
     pub sub_type: LifecycleSubType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LifecycleSubType {
     Enable,
     Disable,
     Connect,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Response {
     pub status: String,
     pub retcode: i64,
@@ -71,10 +72,7 @@ pub struct Response {
     pub echo: String,
 }
 
-#[derive(Debug)]
-pub struct Request {}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub self_id: i64,
     pub user_id: i64,
@@ -271,7 +269,7 @@ pub struct ForwardMessageNode {
     pub message_type: MessageType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Notice {
     GroupUpload(GroupUpload),
     GroupAdmin(GroupAdmin),
@@ -300,7 +298,7 @@ pub enum NoticeType {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupUpload {
     pub time: i64,
     pub self_id: i64,
@@ -311,7 +309,7 @@ pub struct GroupUpload {
     pub file: GroupUploadFile,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupUploadFile {
     pub id: String,
     pub name: String,
@@ -319,7 +317,7 @@ pub struct GroupUploadFile {
     pub busid: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupAdmin {
     pub time: i64,
     pub self_id: i64,
@@ -330,13 +328,13 @@ pub struct GroupAdmin {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupAdminSubType {
     Set,
     UnSet,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupDecrease {
     pub time: i64,
     pub self_id: i64,
@@ -348,14 +346,14 @@ pub struct GroupDecrease {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupDecreaseSubType {
     Leave,
     Kick,
     KickMe,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupIncrease {
     pub time: i64,
     pub self_id: i64,
@@ -367,13 +365,13 @@ pub struct GroupIncrease {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupIncreaseSubType {
     Approve,
     Invite,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupBan {
     pub time: i64,
     pub self_id: i64,
@@ -385,13 +383,13 @@ pub struct GroupBan {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupBanSubType {
     Ban,
     LiftBan,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FriendAdd {
     pub time: i64,
     pub self_id: i64,
@@ -400,7 +398,7 @@ pub struct FriendAdd {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupRecall {
     pub time: i64,
     pub self_id: i64,
@@ -412,7 +410,7 @@ pub struct GroupRecall {
     pub message_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FriendRecall {
     pub time: i64,
     pub self_id: i64,
@@ -422,7 +420,7 @@ pub struct FriendRecall {
     pub message_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Notify {
     Poke(Poke),
     LuckyKing(LuckyKing),
@@ -438,7 +436,7 @@ pub enum NotifySubType {
     Unknown(String),
 }
 
-#[derive(Debug, Serialize, Deserialize, runbot_codegen::ParseJson)]
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct Poke {
     pub time: i64,
     pub self_id: i64,
@@ -451,7 +449,7 @@ pub struct Poke {
     pub target_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LuckyKing {
     pub time: i64,
     pub self_id: i64,
@@ -463,7 +461,7 @@ pub struct LuckyKing {
     pub target_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Honor {
     pub time: i64,
     pub self_id: i64,
@@ -475,12 +473,59 @@ pub struct Honor {
     pub user_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HonorType {
     Talkative,
     Performer,
     Emotion,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::UnknownEnumSerdeAndParse)]
+#[enum_field(name = "request_type")]
+pub enum Request {
+    FriendRequest(FriendRequest),
+    GroupRequest(GroupRequest),
+    Unknown(serde_json::Value),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+pub struct FriendRequest {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub request_type: RequestType,
+    pub user_id: i64,
+    pub comment: String,
+    pub flag: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+pub struct GroupRequest {
+    pub time: i64,
+    pub self_id: i64,
+    pub post_type: PostType,
+    pub request_type: RequestType,
+    pub sub_type: GroupRequestSubType,
+    pub group_id: i64,
+    pub user_id: i64,
+    pub comment: String,
+    pub flag: String,
+}
+
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
+pub enum RequestType {
+    Friend,
+    Group,
+    Unknown(String),
+}
+
+#[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
+pub enum GroupRequestSubType {
+    Add,
+    Invite,
+    Unknown(String),
+}
+
 
 impl Post {
     pub fn parse(value: &serde_json::Value) -> Result<Post> {
@@ -501,7 +546,7 @@ impl Post {
             "notice" => Ok(Post::Notice(Notice::parse(&value)?)),
             "request" => Ok(Post::Request(Request::parse(&value)?)),
             "message_sent" => Ok(Post::MessageSent(Message::parse(&value)?)),
-            _ => Err(Error::FieldError("unknown post_type".to_string())),
+            _ => Ok(Post::Unknown(value.clone())),
         }
     }
 }
@@ -1474,12 +1519,6 @@ impl Honor {
             honor_type,
             user_id,
         })
-    }
-}
-
-impl Request {
-    pub fn parse(_value: &serde_json::Value) -> Result<Request> {
-        return Err(Error::FieldError("request unimplemented".to_string()));
     }
 }
 

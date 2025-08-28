@@ -277,7 +277,12 @@ impl BotContext {
                         Post::MessageSent(message) => {
                             tracing::debug!("parse to message sent: {:?}", message);
                         }
-                        Post::Request(_) => {}
+                        Post::Request(request) => {
+                            tracing::debug!("parse to request: {:?}", request);
+                        }
+                        Post::Unknown(json) => {
+                            tracing::debug!("parse to unknown: {:?}", json);
+                        }
                     },
                     Err(e) => {
                         tracing::error!("WS received: {:?}", e);

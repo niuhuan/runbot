@@ -189,5 +189,95 @@ pub fn notice_type_serde(input: TokenStream) -> TokenStream {
             }
         }
     };
-    r#gen.into()
+    emit!(r#gen)
+}
+
+
+#[proc_macro_derive(UnknownEnumSerdeAndParse, attributes(enum_field))]
+pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
+    // 解析输入
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let enum_name = &input.ident;
+
+    // 默认分派字段
+    let mut field_name = Option::<String>::None;
+
+
+    // 支持 #[parse_json(field = "...")]
+    for attr in &input.attrs {
+        if attr.path().is_ident("enum_field") {
+            if let Ok(nested) = attr.parse_args_with(|input: syn::parse::ParseStream| {
+                syn::punctuated::Punctuated::<darling::ast::NestedMeta, syn::Token![,]>::parse_terminated(input)
+            }) {
+                for meta in &nested {
+                    if let darling::ast::NestedMeta::Meta(syn::Meta::NameValue(nv)) = meta {
+                        if nv.path.is_ident("name") {
+                            if let syn::Expr::Lit(expr_lit) = &nv.value {
+                                if let syn::Lit::Str(ref s) = expr_lit.lit {
+                                    field_name = Some(s.value());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let field_name = if let Some(field_name) = field_name {
+        field_name
+    } else {
+        abort!(&input.span(), "enum_field not define");
+    };
+
+    // 处理变体
+    let variants = match &input.data {
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => variants,
+        _ => panic!("ParseJson only supports enums"),
+    };
+
+    let mut arms = Vec::new();
+    let mut unknown_arm = None;
+
+    for variant in variants {
+        let ident = &variant.ident;
+        match &variant.fields {
+            syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                let ty = &fields.unnamed.first().unwrap().ty;
+                // 检查是不是 Unknown(serde_json::Value)
+                let is_unknown = ident == "Unknown" && quote!(#ty).to_string().contains("serde_json :: Value");
+                if is_unknown {
+                    unknown_arm = Some(quote! {
+                        _ => Ok(#enum_name::Unknown(value.clone()))
+                    });
+                } else {
+                    let case_name = &ident.to_string().to_case(Case::Snake);
+                    arms.push(quote! {
+                        #case_name => Ok(#enum_name::#ident(<#ty>::parse(value)?))
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let unknown_arm = unknown_arm.unwrap_or(quote! {
+        _ => Err(Error::FieldError("Unknown type".to_string()))
+    });
+
+    let r#gen = quote! {
+        impl #enum_name {
+            pub fn parse(value: &serde_json::Value) -> Result<Self> {
+                let request_type = value.get(#field_name)
+                    .ok_or(Error::FieldError(format!("{} not found", #field_name)))?;
+                let request_type = request_type.as_str()
+                    .ok_or(Error::FieldError(format!("{} not is str", #field_name)))?;
+                match request_type {
+                    #(#arms,)*
+                    #unknown_arm,
+                }
+            }
+        }
+    };
+    emit!(r#gen)
 }
