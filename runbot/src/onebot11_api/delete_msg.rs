@@ -1,8 +1,7 @@
-
+use crate::error::Result;
 use crate::prelude::BotContext;
 use crate::prelude::EchoAsyncResponse;
 use serde_json::json;
-use crate::error::Result;
 
 impl BotContext {
     pub async fn delete_msg(&self, message_id: i64) -> Result<EchoAsyncResponse> {

@@ -25,4 +25,3 @@ pub mod serde_derive {
 pub mod async_trait {
     pub use async_trait::*;
 }
-

@@ -1,7 +1,7 @@
-use tokio::time::Duration;
-use crate::prelude::BotContext;
 use crate::error::Result;
-use serde_derive::{Serialize, Deserialize};
+use crate::prelude::BotContext;
+use serde_derive::{Deserialize, Serialize};
+use tokio::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupMemberInfo {
@@ -28,12 +28,22 @@ pub struct GroupMemberInfo {
 }
 
 impl BotContext {
-    pub async fn get_group_member_info(&self, group_id: i64, user_id: i64, no_cache: bool) -> Result<GroupMemberInfo> {
-        let response = self.websocket_send("get_group_member_info", serde_json::json!({
-            "group_id": group_id,
-            "user_id": user_id,
-            "no_cache": no_cache,
-        })).await?;
+    pub async fn get_group_member_info(
+        &self,
+        group_id: i64,
+        user_id: i64,
+        no_cache: bool,
+    ) -> Result<GroupMemberInfo> {
+        let response = self
+            .websocket_send(
+                "get_group_member_info",
+                serde_json::json!({
+                    "group_id": group_id,
+                    "user_id": user_id,
+                    "no_cache": no_cache,
+                }),
+            )
+            .await?;
         let response = response.data(Duration::from_secs(10)).await?;
         let group_member_info: GroupMemberInfo = serde_json::from_value(response)?;
         Ok(group_member_info)

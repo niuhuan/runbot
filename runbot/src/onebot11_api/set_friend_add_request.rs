@@ -1,7 +1,7 @@
+use crate::error::Result;
 use crate::prelude::BotContext;
 use crate::prelude::EchoAsyncResponse;
 use serde_json::json;
-use crate::error::Result;
 
 impl BotContext {
     pub async fn set_friend_add_request(

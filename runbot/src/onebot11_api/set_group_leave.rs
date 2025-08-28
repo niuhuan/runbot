@@ -1,6 +1,6 @@
+use crate::error::Result;
 use crate::prelude::BotContext;
 use serde_json::json;
-use crate::error::Result;
 
 impl BotContext {
     pub async fn set_group_leave(&self, group_id: i64, is_dismiss: bool) -> Result<()> {

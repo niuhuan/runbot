@@ -26,7 +26,11 @@ pub struct OcrImageResponse {
 }
 
 impl BotContext {
-    pub async fn ocr_image_with_timeout(&self, image: &str, timeout: Duration) -> Result<OcrImageResponse> {
+    pub async fn ocr_image_with_timeout(
+        &self,
+        image: &str,
+        timeout: Duration,
+    ) -> Result<OcrImageResponse> {
         let response = self
             .websocket_send(
                 "ocr_image",
@@ -35,12 +39,12 @@ impl BotContext {
                 }),
             )
             .await?;
-        let response: OcrImageResponse =
-            serde_json::from_value(response.data(timeout).await?)?;
+        let response: OcrImageResponse = serde_json::from_value(response.data(timeout).await?)?;
         Ok(response)
     }
 
     pub async fn ocr_image(&self, image: &str) -> Result<OcrImageResponse> {
-        self.ocr_image_with_timeout(image, Duration::from_secs(10)).await
+        self.ocr_image_with_timeout(image, Duration::from_secs(10))
+            .await
     }
 }

@@ -21,7 +21,8 @@ impl Processor {
             processor.process_message(bot_ctx, message).await
         } else if let (Processor::Notice(processor), event::Post::Notice(notice)) = (self, post) {
             processor.process_notice(bot_ctx, notice).await
-        } else if let (Processor::Request(processor), event::Post::Request(request)) = (self, post) {
+        } else if let (Processor::Request(processor), event::Post::Request(request)) = (self, post)
+        {
             processor.process_request(bot_ctx, request).await
         } else if let Processor::Post(processor) = self {
             processor.process_post(bot_ctx, post).await

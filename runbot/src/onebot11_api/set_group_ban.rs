@@ -1,6 +1,6 @@
-use serde_json::json;
 use crate::error::Result;
 use crate::prelude::BotContext;
+use serde_json::json;
 
 impl BotContext {
     pub async fn set_group_ban(&self, group_id: i64, user_id: i64, duration: i64) -> Result<()> {

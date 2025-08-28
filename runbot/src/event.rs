@@ -331,7 +331,6 @@ pub enum NoticeType {
     Unknown(String),
 }
 
-
 #[derive(Debug, Clone)]
 pub struct GroupUpload {
     pub time: i64,
@@ -559,7 +558,6 @@ pub enum GroupRequestSubType {
     Invite,
     Unknown(String),
 }
-
 
 impl Post {
     pub fn parse(value: &serde_json::Value) -> Result<Post> {
@@ -866,7 +864,9 @@ impl MessageData {
         let r#type = r#type
             .as_str()
             .ok_or(Error::FieldError("type not found".to_string()))?;
-        let value = value.get("data").ok_or(Error::FieldError("data not found".to_string()))?;
+        let value = value
+            .get("data")
+            .ok_or(Error::FieldError("data not found".to_string()))?;
         match r#type {
             "text" => Ok(MessageData::Text(MessageText::parse(value)?)),
             "face" => Ok(MessageData::Face(MessageFace::parse(value)?)),
@@ -1566,7 +1566,8 @@ where
     let value: serde_json::Value = serde::Deserialize::deserialize(d)?;
     if value.is_number() {
         let number = value.as_i64().unwrap();
-        let from: std::result::Result<T, ParseIntError> = std::str::FromStr::from_str(number.to_string().as_str());
+        let from: std::result::Result<T, ParseIntError> =
+            std::str::FromStr::from_str(number.to_string().as_str());
         match from {
             Ok(from) => Ok(from),
             Err(_) => Err(serde::de::Error::custom("parse error")),

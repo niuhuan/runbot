@@ -28,11 +28,7 @@ pub async fn demo_message_processor_fn(
                 .await?;
             let bot_ctx = bot_ctx.clone();
             tokio::spawn(async move {
-                let msg_id = async_response
-                    .wait_response()
-                    .await
-                    .unwrap()
-                    .message_id;
+                let msg_id = async_response.wait_response().await.unwrap().message_id;
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 bot_ctx.delete_msg(msg_id).await.unwrap();
             });
@@ -42,10 +38,7 @@ pub async fn demo_message_processor_fn(
 }
 
 #[processor]
-pub async fn demo_notice_processor_fn(
-    bot_ctx: Arc<BotContext>,
-    notice: &Notice,
-) -> Result<bool> {
+pub async fn demo_notice_processor_fn(bot_ctx: Arc<BotContext>, notice: &Notice) -> Result<bool> {
     match notice {
         Notice::FriendRecall(friend_recall) => {
             bot_ctx

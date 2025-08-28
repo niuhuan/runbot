@@ -1,6 +1,6 @@
-use serde_derive::{Serialize, Deserialize};
-use crate::prelude::BotContext;
 use crate::error::Result;
+use crate::prelude::BotContext;
+use serde_derive::{Deserialize, Serialize};
 use tokio::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,10 +38,15 @@ impl RecordOutFormat {
 
 impl BotContext {
     pub async fn get_record(&self, file: &str, out_format: RecordOutFormat) -> Result<Record> {
-        let response = self.websocket_send("get_record", serde_json::json!({
-            "file": file,
-            "out_format": out_format.to_string(),
-        })).await?;
+        let response = self
+            .websocket_send(
+                "get_record",
+                serde_json::json!({
+                    "file": file,
+                    "out_format": out_format.to_string(),
+                }),
+            )
+            .await?;
         let response = response.data(Duration::from_secs(10)).await?;
         let record: Record = serde_json::from_value(response)?;
         Ok(record)

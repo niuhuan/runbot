@@ -1,9 +1,14 @@
+use crate::error::Result;
 use crate::prelude::BotContext;
 use serde_json::json;
-use crate::error::Result;
 
 impl BotContext {
-    pub async fn set_group_kick(&self, group_id: i64, user_id: i64, reject_add_request: bool) -> Result<()> {
+    pub async fn set_group_kick(
+        &self,
+        group_id: i64,
+        user_id: i64,
+        reject_add_request: bool,
+    ) -> Result<()> {
         let msg = json!(
             {
                 "group_id": group_id,

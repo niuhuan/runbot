@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::bot_context::*;
 use crate::error::{Error, Result};
 use dashmap::DashMap;
 use futures_util::StreamExt;
@@ -8,7 +9,6 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
 use tokio_tungstenite::{WebSocketStream, accept_async, connect_async};
-use crate::bot_context::*;
 
 async fn loop_bot<S>(bot_ctx: Arc<BotContext>, ws_stream: WebSocketStream<S>)
 where

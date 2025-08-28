@@ -1,10 +1,8 @@
-
+use crate::error::Result;
 use crate::prelude::BotContext;
 use crate::prelude::Message;
 use serde_json::json;
-use crate::error::Result;
 use tokio::time::Duration;
-
 
 impl BotContext {
     pub async fn get_msg_with_timeout(
