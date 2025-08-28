@@ -1,0 +1,14 @@
+pub mod send_message;
+pub mod delete_msg;
+pub mod get_msg;
+pub mod get_forward_msg;
+pub mod set_friend_add_request;
+pub mod set_group_add_request;
+pub mod set_group_ban;
+pub mod set_group_kick;
+pub mod set_group_whole_ban;
+pub mod set_group_admin;
+pub mod set_group_card;
+pub mod set_group_name;
+pub mod set_group_leave;
+pub mod set_group_special_title;

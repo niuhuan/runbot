@@ -9,13 +9,13 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::SinkExt;
 use futures_util::stream::SplitSink;
-use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tokio_tungstenite::WebSocketStream;
 
+// todo: default time for bot context
 #[derive(Debug)]
 pub struct BotContext {
     pub(crate) connection: Mutex<Option<BotConnection>>,
@@ -53,27 +53,6 @@ impl EchoAsyncResponse {
     }
 }
 
-pub struct SendMessageAsyncResponse(EchoAsyncResponse);
-
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
-pub struct SendMessageResponse {
-    pub message_id: i64,
-}
-
-impl SendMessageAsyncResponse {
-    pub async fn wait_response_with_timeout(
-        self,
-        timeout: Duration,
-    ) -> Result<SendMessageResponse> {
-        Ok(serde_json::from_value(self.0.data(timeout).await?)?)
-    }
-
-    pub async fn wait_response(self) -> Result<SendMessageResponse> {
-        self.wait_response_with_timeout(Duration::from_secs(10))
-            .await
-    }
-}
-
 impl BotContext {
     pub async fn websocket_send(
         &self,
@@ -99,133 +78,6 @@ impl BotContext {
             .ok_or(Error::StateError("connection not ready".to_string()))?;
         connection.send_raw(msg).await?;
         Ok(echo_response)
-    }
-
-    pub async fn send_private_message(
-        &self,
-        user_id: i64,
-        message: impl SendMessage,
-    ) -> Result<SendMessageAsyncResponse> {
-        let msg = json!(
-            {
-                "user_id": user_id,
-                "message": message.json()?,
-            }
-        );
-        self.websocket_send("send_private_msg", msg)
-            .await
-            .map(|r| SendMessageAsyncResponse(r))
-    }
-
-    pub async fn send_group_message(
-        &self,
-        group_id: i64,
-        message: impl SendMessage,
-    ) -> Result<SendMessageAsyncResponse> {
-        let msg = json!(
-            {
-                "group_id": group_id,
-                "message": message.json()?,
-            }
-        );
-        self.websocket_send("send_group_msg", msg)
-            .await
-            .map(|r| SendMessageAsyncResponse(r))
-    }
-
-    pub async fn send_message(
-        &self,
-        message_type: MessageType,
-        target_id: i64,
-        message: impl SendMessage,
-    ) -> Result<SendMessageAsyncResponse> {
-        match message_type {
-            MessageType::Private => self.send_private_message(target_id, message).await,
-            MessageType::Group => self.send_group_message(target_id, message).await,
-            _ => Err(Error::FieldError("unknown message_type".to_string())),
-        }
-    }
-
-    pub async fn delete_msg(&self, message_id: i64) -> Result<EchoAsyncResponse> {
-        let msg = json!(
-            {
-                "message_id": message_id,
-            }
-        );
-        self.websocket_send("delete_msg", msg).await
-    }
-
-    pub async fn get_msg_with_timeout(
-        &self,
-        message_id: i64,
-        timeout: Duration,
-    ) -> Result<Message> {
-        let send = json!({
-            "message_id": message_id,
-        });
-        let response = self.websocket_send("get_msg", send).await?;
-        let data = response.data(timeout).await?;
-        let msg = Message::parse(&data)?;
-        Ok(msg)
-    }
-
-    // todo: default time for bot context
-    pub async fn get_msg(&self, message_id: i64) -> Result<Message> {
-        self.get_msg_with_timeout(message_id, Duration::from_secs(3))
-            .await
-    }
-
-    pub async fn get_forward_msg_with_timeout(
-        &self,
-        id: &str,
-        timeout: Duration,
-    ) -> Result<ForwardMessage> {
-        let send = json!({
-            "id": id,
-        });
-        let response = self.websocket_send("get_forward_msg", send).await?;
-        let data = response.data(timeout).await?;
-        let msg = ForwardMessage::parse(&data)?;
-        Ok(msg)
-    }
-
-    pub async fn get_forward_msg(&self, id: &str) -> Result<ForwardMessage> {
-        self.get_forward_msg_with_timeout(id, Duration::from_secs(3))
-            .await
-    }
-
-    pub async fn set_friend_add_request(
-        &self,
-        flag: &str,
-        approve: bool,
-        remark: Option<&str>,
-    ) -> Result<EchoAsyncResponse> {
-        let msg = json!(
-            {
-                "flag": flag,
-                "approve": approve,
-                "remark": remark,
-            }
-        );
-        self.websocket_send("set_friend_add_request", msg).await
-    }
-
-    pub async fn set_group_add_request(
-        &self,
-        flag: &str,
-        approve: bool,
-        sub_type: GroupRequestSubType,
-        remark: Option<&str>,
-    ) -> Result<EchoAsyncResponse> {
-        let msg = json!(
-            {
-                "flag": flag,
-                "approve": approve,
-                "sub_type": sub_type,
-                "remark": remark,
-            }
-        );
-        self.websocket_send("set_group_add_request", msg).await
     }
 }
 
