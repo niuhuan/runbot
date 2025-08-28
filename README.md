@@ -1,31 +1,9 @@
 RUNBOT
 ======
 
-Rust one bot v11 协议 （ 正向ws / 反向ws ）
+Rust one bot v11 协议 （ 正向ws / 反向ws ）实现。。
 
-- [x] 事件
-  - [x] 监听元事件
-  - [x] 监听私聊、组群消息
-  - [x] 监听通知（群增减员、拍一拍、手气最佳等）
-  - [x] 监听请求（好友请求、进群请求）
-- [x] 操作
-  - [x] 发送文本、图片、自定义onebot11JSON消息 到 私聊、组群 (并异步取得发送结果以及消息ID)
-  - [x] 撤回消息
-  - [x] 根据消息ID获取消息
-  - [x] 获取合并转发消息
-  - [ ] 发送好友赞
-  - [ ] 群组踢人
-  - [ ] ...
-- [x] 类型
-  - [x] 消息：文本、表情、图片、@某人、回复、合并转发、合并转发自定义节点
-  - [ ] 消息: 语音、短视频、猜拳魔法表情、掷骰子魔法表情、戳一戳、窗口抖动（戳一戳）、匿名发消息、链接分享、推荐好友、推荐群、位置、音乐分享、音乐自定义分享、合并转发节点、XML 消息、JSON 消息
-- [ ] 拓展
-  - [ ] 命令匹配、命令宏
-
-## 使用
-
-- 您可以clone项目并运行 `cargo run --example client`  运行正向WS事例
-- 您可以clone项目并运行 `cargo run --example server`  运行反向WS事例
+## 宏定义、开箱即用
 
 #### 0. 引入依赖
 
@@ -37,7 +15,7 @@ runbot = { git = "https://github.com/niuhuan/runbot.git" }
 runbot = "0"
 ```
 
-#### 1. 正向WS，回复消息，响应通知
+#### 1. 定义事件处理器
 
 ```rust
 use std::sync::Arc;
@@ -58,8 +36,11 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: &Message) -> R
     }
     Ok(true)
 }
+```
 
+#### 2. 连接bot
 
+```rust
 #[tokio::main]
 async fn main() {
     // 打印日志
@@ -74,12 +55,17 @@ async fn main() {
         .add_processor(DEMO_PROCESSOR_FN)
         .build()
         .unwrap();
-    // loop_client 或者 spawn loop_client
+    // loop_client 或者 spawn loop_client （方便定时任务等）
     loop_client(bot_ctx).await;
 }
 ```
 
 ![hello](images/hello.png)
+
+## Tips
+
+- 您可以clone项目并运行 `cargo run --example client`  运行正向WS事例
+- 您可以clone项目并运行 `cargo run --example server`  运行反向WS事例
 
 #### 发送消息以及消息链 (文字以及图片)
 
@@ -125,3 +111,24 @@ async fn main() {
     loop_server(server).await.unwrap();
 }
 ```
+
+## Features
+
+- [x] 事件
+  - [x] 监听元事件
+  - [x] 监听私聊、组群消息
+  - [x] 监听通知（群增减员、拍一拍、手气最佳等）
+  - [x] 监听请求（好友请求、进群请求）
+- [x] 操作
+  - [x] 发送文本、图片、自定义onebot11JSON消息 到 私聊、组群 (并异步取得发送结果以及消息ID)
+  - [x] 撤回消息
+  - [x] 根据消息ID获取消息
+  - [x] 获取合并转发消息
+  - [ ] 发送好友赞
+  - [ ] 群组踢人
+  - [ ] ...
+- [x] 类型
+  - [x] 消息：文本、表情、图片、@某人、回复、合并转发、合并转发自定义节点
+  - [ ] 消息: 语音、短视频、猜拳魔法表情、掷骰子魔法表情、戳一戳、窗口抖动（戳一戳）、匿名发消息、链接分享、推荐好友、推荐群、位置、音乐分享、音乐自定义分享、合并转发节点、XML 消息、JSON 消息
+- [ ] 拓展
+  - [ ] 命令匹配、命令宏
