@@ -69,6 +69,8 @@ async fn main() {
 
 ## Tips
 
+以上代码来自 [runbot/examples/client.rs](runbot/examples/client.rs)
+
 - 您可以clone项目并运行 `cargo run --example client`  运行正向WS事例
 - 您可以clone项目并运行 `cargo run --example server`  运行反向WS事例
 
