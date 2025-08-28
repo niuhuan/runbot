@@ -114,6 +114,8 @@ async fn main() {
 
 ## Features
 
+https://github.com/botuniverse/onebot-11/blob/master/api/public.md
+
 - [x] 事件
   - [x] 监听元事件
   - [x] 监听私聊、组群消息

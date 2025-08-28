@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use crate::{connection::BotContext, event};
+use crate::{bot_context::BotContext, event};
 use async_trait::async_trait;
 
 #[derive(Debug)]
