@@ -25,37 +25,9 @@ macro_rules! emit {
 
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn message_processor(_args: TokenStream, input: TokenStream) -> TokenStream {
-    common_processor(
-        _args,
-        input,
-        Box::new(syn::parse_quote!(&Message)),
-        quote! {MessageProcessor},
-        quote! {process_message},
-        quote! {Message},
-    )
-}
-
-#[proc_macro_error]
-#[proc_macro_attribute]
-pub fn notice_processor(_args: TokenStream, input: TokenStream) -> TokenStream {
-    common_processor(
-        _args,
-        input,
-        Box::new(syn::parse_quote!(&Notice)),
-        quote! {NoticeProcessor},
-        quote! {process_notice},
-        quote! {Notice},
-    )
-}
-
-fn common_processor(
+pub fn processor(
     _args: TokenStream,
     input: TokenStream,
-    mtp: Box<syn::Type>,
-    trait_name: proc_macro2::TokenStream,
-    trait_fn_name: proc_macro2::TokenStream,
-    processor_type: proc_macro2::TokenStream,
 ) -> TokenStream {
     let method = parse_macro_input!(input as syn::ItemFn);
     let method_clone = method.clone();
@@ -96,9 +68,18 @@ fn common_processor(
         FnArg::Typed(t) => t,
     };
     let second_param_type = &second_param_type.ty;
-    if second_param_type != &mtp {
-        abort!(&second_param.span(), "second parameter must be &Message");
-    }
+
+    let (trait_name, trait_fn_name, processor_type) = if second_param_type == &syn::parse_quote!(&Message) {
+        (quote! {MessageProcessor}, quote! {process_message}, quote! {Message})
+    } else if second_param_type == &syn::parse_quote!(&Notice) {
+        (quote! {NoticeProcessor}, quote! {process_notice}, quote! {Notice})
+    } else if second_param_type == &syn::parse_quote!(&Request) {
+        (quote! {RequestProcessor}, quote! {process_request}, quote! {Request})
+    } else if second_param_type == &syn::parse_quote!(&Post) {
+        (quote! {PostProcessor}, quote! {process_post}, quote! {Post})
+    } else {
+        abort!(&second_param.span(), "second parameter must be &Message or &Notice or &Request or &Post");
+    };
 
     let vis = method.vis;
     let asyncness = method.sig.asyncness;

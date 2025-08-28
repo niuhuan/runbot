@@ -16,7 +16,7 @@ async fn main() {
     loop_server(server).await.unwrap();
 }
 
-#[message_processor]
+#[processor]
 pub async fn demo_message_processor_fn(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -41,7 +41,7 @@ pub async fn demo_message_processor_fn(
     Ok(true)
 }
 
-#[notice_processor]
+#[processor]
 pub async fn demo_notice_processor_fn(
     bot_ctx: Arc<BotContext>,
     notice: &Notice,
