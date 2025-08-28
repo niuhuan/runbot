@@ -4,7 +4,7 @@ use std::vec;
 
 use crate::error::{Error, Result};
 use crate::event::*;
-use crate::process::{MessageProcessor, NoticeProcessor};
+use crate::process::Processor;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::stream::SplitSink;
@@ -22,8 +22,7 @@ pub struct BotContext {
     connection: Mutex<Option<BotConnection>>,
     pub url: Option<String>,
     pub id: i64,
-    pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
-    pub notice_processors: Arc<Vec<Box<dyn NoticeProcessor>>>,
+    pub processors: Arc<Vec<Processor>>,
     pub echo_notifer: Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
 }
 
@@ -213,77 +212,23 @@ impl BotContext {
             tokio_tungstenite::tungstenite::protocol::Message::Text(text) => {
                 tracing::debug!("WS received: {}", text.to_string());
                 match parse_post(text) {
-                    Ok(post) => match post {
-                        Post::MetaEvent(meta_event) => {
-                            tracing::debug!("parse to meta_event : {:?}", meta_event);
-                        }
-                        Post::Response(response) => {
-                            tracing::debug!("parse to reponse : {:?}", response);
-                            if let Some(v) = bot_ctx.echo_notifer.remove(&response.echo) {
-                                match v.1.send(response).await {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        tracing::warn!("echo map error : {:?}", err);
+                    Ok(post) => {
+                        tracing::debug!("parse post: {:?}", post);
+                        for processor in self.processors.iter() {
+                            let processe_result = processor.process(bot_ctx.clone(), &post).await;
+                            match processe_result {
+                                Ok(b) => {
+                                    if b {
+                                        break;
                                     }
-                                }
+                                },
+                                Err(err) => {
+                                    tracing::error!("processor {:?} process post {:?} error: {:?}", processor, post, err);
+                                    break;
+                                },
                             }
                         }
-                        Post::Message(message) => {
-                            tracing::debug!("parse to message: {:?}", message);
-                            let message = Arc::new(message);
-                            let message_processors = self.message_processors.clone();
-                            tokio::spawn(async move {
-                                for processor in message_processors.iter() {
-                                    match processor
-                                        .process_message(bot_ctx.clone(), message.clone())
-                                        .await
-                                    {
-                                        Ok(b) => {
-                                            if b {
-                                                break;
-                                            }
-                                        }
-                                        Err(err) => {
-                                            tracing::error!("process message error {:?}", err);
-                                            break;
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                        Post::Notice(notice) => {
-                            tracing::debug!("parse to notice: {:?}", notice);
-                            let notice = Arc::new(notice);
-                            let notice_processors = self.notice_processors.clone();
-                            tokio::spawn(async move {
-                                for processor in notice_processors.iter() {
-                                    match processor
-                                        .process_notice(bot_ctx.clone(), notice.clone())
-                                        .await
-                                    {
-                                        Ok(b) => {
-                                            if b {
-                                                break;
-                                            }
-                                        }
-                                        Err(err) => {
-                                            tracing::error!("process notice error {:?}", err);
-                                            break;
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                        Post::MessageSent(message) => {
-                            tracing::debug!("parse to message sent: {:?}", message);
-                        }
-                        Post::Request(request) => {
-                            tracing::debug!("parse to request: {:?}", request);
-                        }
-                        Post::Unknown(json) => {
-                            tracing::debug!("parse to unknown: {:?}", json);
-                        }
-                    },
+                    }
                     Err(e) => {
                         tracing::error!("WS received: {:?}", e);
                     }
@@ -337,16 +282,14 @@ impl fmt::Debug for BotConnection {
 }
 pub struct BotContextBuilder {
     pub url: Option<String>,
-    pub message_processors: Vec<Box<dyn MessageProcessor>>,
-    pub notice_processors: Vec<Box<dyn NoticeProcessor>>,
+    pub processors: Vec<Processor>,
 }
 
 impl BotContextBuilder {
     pub fn new() -> Self {
         Self {
             url: None,
-            message_processors: vec![],
-            notice_processors: vec![],
+            processors: vec![],
         }
     }
 
@@ -357,19 +300,11 @@ impl BotContextBuilder {
         }
     }
 
-    pub fn add_message_processor(
+    pub fn add_processor(
         mut self,
-        processor: impl MessageProcessor + Copy + 'static,
+        processor: impl Into<Processor> + Sync + Send + 'static,
     ) -> Self {
-        self.message_processors.push(Box::new(processor));
-        self
-    }
-
-    pub fn add_notice_processor(
-        mut self,
-        processor: impl NoticeProcessor + Copy + 'static,
-    ) -> Self {
-        self.notice_processors.push(Box::new(processor));
+        self.processors.push(processor.into());
         self
     }
 
@@ -378,31 +313,28 @@ impl BotContextBuilder {
             connection: Mutex::new(None),
             url: self.url,
             id: 0,
-            message_processors: Arc::new(self.message_processors),
-            notice_processors: Arc::new(self.notice_processors),
+            processors: Arc::new(self.processors),
             echo_notifer: Arc::new(DashMap::new()),
         }))
     }
+
 }
 
 pub struct BotServer {
     pub bind: String,
-    pub message_processors: Arc<Vec<Box<dyn MessageProcessor>>>,
-    pub notice_processors: Arc<Vec<Box<dyn NoticeProcessor>>>,
+    pub processors: Arc<Vec<Processor>>,
 }
 
 pub struct BotServerBuilder {
     pub bind: Option<String>,
-    pub message_processors: Vec<Box<dyn MessageProcessor>>,
-    pub notice_processors: Vec<Box<dyn NoticeProcessor>>,
+    pub processors: Vec<Processor>,
 }
 
 impl BotServerBuilder {
     pub fn new() -> Self {
         Self {
             bind: None,
-            message_processors: vec![],
-            notice_processors: vec![],
+            processors: vec![],
         }
     }
 
@@ -411,19 +343,11 @@ impl BotServerBuilder {
         self
     }
 
-    pub fn add_message_processor(
+    pub fn add_processor(
         mut self,
-        processor: impl MessageProcessor + Copy + 'static,
+        processor: impl Into<Processor> + Sync + Send + 'static,
     ) -> Self {
-        self.message_processors.push(Box::new(processor));
-        self
-    }
-
-    pub fn add_notice_processor(
-        mut self,
-        processor: impl NoticeProcessor + Copy + 'static,
-    ) -> Self {
-        self.notice_processors.push(Box::new(processor));
+        self.processors.push(processor.into());
         self
     }
 
@@ -434,8 +358,7 @@ impl BotServerBuilder {
             } else {
                 return Err(Error::ParamsError("bind must be set".to_string()));
             },
-            message_processors: Arc::new(self.message_processors),
-            notice_processors: Arc::new(self.notice_processors),
+            processors: Arc::new(self.processors),
         }))
     }
 }
@@ -469,8 +392,7 @@ pub async fn loop_server(bot_server: Arc<BotServer>) -> Result<()> {
     let listener = TcpListener::bind(&bot_server.bind).await.unwrap();
     println!("WebSocket server started on ws://{}", &bot_server.bind);
     while let Ok((stream, _)) = listener.accept().await {
-        let message_processors = bot_server.message_processors.clone();
-        let notice_processors = bot_server.notice_processors.clone();
+        let processors = bot_server.processors.clone();
         tokio::spawn(async move {
             // 协议升级为 WebSocket
             let ws_stream = accept_async(stream).await.unwrap();
@@ -479,8 +401,7 @@ pub async fn loop_server(bot_server: Arc<BotServer>) -> Result<()> {
                     connection: Mutex::new(None),
                     url: None,
                     id: 0,
-                    message_processors: message_processors,
-                    notice_processors: notice_processors,
+                    processors,
                     echo_notifer: Arc::new(DashMap::new()),
                 }),
                 ws_stream,

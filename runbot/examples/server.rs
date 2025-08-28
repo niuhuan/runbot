@@ -9,14 +9,18 @@ async fn main() {
         .init();
     let server = BotServerBuilder::new()
         .bind("0.0.0.0:3131")
-        .add_message_processor(DEMO_PROCESSOR_FN)
+        .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
+        .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .build()
         .unwrap();
     loop_server(server).await.unwrap();
 }
 
 #[message_processor]
-pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) -> Result<bool> {
+pub async fn demo_message_processor_fn(
+    bot_ctx: Arc<BotContext>,
+    message: &Message,
+) -> Result<bool> {
     if message.raw_message.eq("hello") {
         if let MessageSubType::Friend = message.sub_type {
             let async_response = bot_ctx
@@ -33,6 +37,25 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: Arc<Message>) 
                 bot_ctx.delete_msg(msg_id).await.unwrap();
             });
         }
+    }
+    Ok(true)
+}
+
+#[notice_processor]
+pub async fn demo_notice_processor_fn(
+    bot_ctx: Arc<BotContext>,
+    notice: &Notice,
+) -> Result<bool> {
+    match notice {
+        Notice::FriendRecall(friend_recall) => {
+            bot_ctx
+                .send_private_message(
+                    friend_recall.user_id,
+                    format!("{} 撤回了一条消息", friend_recall.user_id),
+                )
+                .await?;
+        }
+        _ => {}
     }
     Ok(true)
 }

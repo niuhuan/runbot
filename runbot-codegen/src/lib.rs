@@ -29,9 +29,10 @@ pub fn message_processor(_args: TokenStream, input: TokenStream) -> TokenStream 
     common_processor(
         _args,
         input,
-        Box::new(syn::parse_quote!(Arc<Message>)),
+        Box::new(syn::parse_quote!(&Message)),
         quote! {MessageProcessor},
         quote! {process_message},
+        quote! {Message},
     )
 }
 
@@ -41,9 +42,10 @@ pub fn notice_processor(_args: TokenStream, input: TokenStream) -> TokenStream {
     common_processor(
         _args,
         input,
-        Box::new(syn::parse_quote!(Arc<Notice>)),
+        Box::new(syn::parse_quote!(&Notice)),
         quote! {NoticeProcessor},
         quote! {process_notice},
+        quote! {Notice},
     )
 }
 
@@ -53,6 +55,7 @@ fn common_processor(
     mtp: Box<syn::Type>,
     trait_name: proc_macro2::TokenStream,
     trait_fn_name: proc_macro2::TokenStream,
+    processor_type: proc_macro2::TokenStream,
 ) -> TokenStream {
     let method = parse_macro_input!(input as syn::ItemFn);
     let method_clone = method.clone();
@@ -116,10 +119,15 @@ fn common_processor(
             #asyncness fn #trait_fn_name(&self, #first_param, #second_param) #return_type #block
         }
 
-        #[allow(non_upper_case_globals)]
         #vis static #static_name: #struct_name = #struct_name;
 
         #method_clone
+
+        impl Into<Processor> for #struct_name {
+            fn into(self) -> Processor {
+                Processor::#processor_type(Box::new(self))
+            }
+        }
     })
 }
 

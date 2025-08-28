@@ -9,8 +9,8 @@ async fn main() {
         .init();
     let bot_ctx = BotContextBuilder::new()
         .url("ws://localhost:3001")
-        .add_message_processor(DEMO_MESSAGE_PROCESSOR_FN)
-        .add_notice_processor(DEMO_NOTICE_PROCESSOR_FN)
+        .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
+        // .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .build()
         .unwrap();
     loop_client(bot_ctx).await.unwrap();
@@ -19,7 +19,7 @@ async fn main() {
 #[message_processor]
 pub async fn demo_message_processor_fn(
     bot_ctx: Arc<BotContext>,
-    message: Arc<Message>,
+    message: &Message,
 ) -> Result<bool> {
     if message.raw_message.eq("hello") {
         if let MessageSubType::Friend = message.sub_type {
@@ -44,9 +44,9 @@ pub async fn demo_message_processor_fn(
 #[notice_processor]
 pub async fn demo_notice_processor_fn(
     bot_ctx: Arc<BotContext>,
-    notice: Arc<Notice>,
+    notice: &Notice,
 ) -> Result<bool> {
-    match notice.as_ref() {
+    match notice {
         Notice::FriendRecall(friend_recall) => {
             bot_ctx
                 .send_private_message(
