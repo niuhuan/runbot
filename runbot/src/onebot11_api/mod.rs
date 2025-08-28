@@ -21,3 +21,9 @@ pub mod get_record;
 pub mod get_image;
 pub mod can_send_image;
 pub mod can_send_record;
+
+pub mod delete_friend;
+pub mod friend_poke;
+pub mod set_group_remark;
+pub mod mark_msg_as_read;
+pub mod ocr_image;

@@ -119,6 +119,8 @@ async fn main() {
 
 ## Features
 
+https://llonebot.apifox.cn/
+
 https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 
 - [x] 事件
@@ -138,6 +140,9 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
   - [ ] 获取 Cookies、获取 CSRF Token、获取 QQ 相关接口凭证
   - [x] 获取语音、获取图片、检查是否可以发送图片、检查是否可以发送语音
   - [ ] 获取运行状态、获取版本信息、重启 OneBot 实现、清理缓存
+  - [ ] ...
+  - [x] 删除好友、戳一戳好友、设置群备注
+  - [x] 标记消息已读、图片OCR
   - [ ] ...
 - [x] 类型
   - [x] 消息：文本、表情、图片、语音、短视频、@某人、回复、合并转发、合并转发自定义节点
