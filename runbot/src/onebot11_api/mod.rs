@@ -12,3 +12,8 @@ pub mod set_group_card;
 pub mod set_group_name;
 pub mod set_group_leave;
 pub mod set_group_special_title;
+pub mod get_friend_list;
+pub mod get_group_info;
+pub mod get_group_list;
+pub mod get_group_member_info;
+pub mod get_group_member_list;
