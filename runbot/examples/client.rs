@@ -8,7 +8,7 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
     let bot_ctx = BotContextBuilder::new()
-        .url("ws://cool.fubukigroup:3002")
+        .url("ws://localhost:3001")
         .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
         .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .add_processor(DEMO_AUTO_APPROVE_FN)
