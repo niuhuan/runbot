@@ -28,9 +28,9 @@ use anyhow::Result;
 use runbot::prelude::*;
 
 // 声明一个处理器, 当收到消息后被调用
-// 参数固定为 Arc<BotContext>，&对应事件类型,  （事件类型包括 Message 消息、Notice 通知、Request 请求、Post 以上三种的枚举） 
+// 参数固定为 Arc<BotContext>，&对应事件类型,  （事件类型包括 Message 消息、Notice 通知、Request 请求、Post 以上三种的枚举）
 // 返回值为 Result<bool>, 当有一个处理器返回Ok(true)或Err()时将会停止递归
-// 
+//
 // 此demo为收到好友消息，消息为`hello`时，自动回复`world`
 #[processor]
 pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: &Message) -> Result<bool> {
@@ -94,7 +94,7 @@ bot_ctx.send_private_message(message.user_id, vec![
 ]).await?;
 ```
 
-#### 确保消息发送成功、获取消息ID、撤回消息 
+#### 确保消息发送成功、获取消息ID、撤回消息
 
 ```rust
 bot_ctx.send_private_message(12345, "hello").await?;
@@ -118,6 +118,53 @@ async fn main() {
     loop_server(server).await.unwrap();
 }
 ```
+
+#### 机器人命令
+
+```rust
+#[command(pattern = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
+pub async fn demo_command_ban(
+    bot_ctx: Arc<BotContext>,
+    message: &Message,
+    time: i64,
+    unit: Option<String>,
+    user: Vec<i64>,
+) -> Result<bool> {
+    let unit = match unit {
+        Some(unit) => match unit.as_str() {
+            "s" => 1,
+            "m" => 60,
+            "h" => 3600,
+            _ => unreachable!(),
+        },
+        None => 1,
+    };
+    let time = time * unit;
+    let msg = format!("禁用用户 {:?} {time}秒", user);
+    match message.message_type {
+        MessageType::Group => {
+            bot_ctx.send_group_message(message.group_id, msg).await?;
+        }
+        MessageType::Private => {
+            bot_ctx.send_private_message(message.user_id, msg).await?;
+        }
+        _ => {}
+    }
+    Ok(true)
+}
+```
+
+- 中括号匹配结尾需要为冒号和英文字符
+- {:n} 会截从文本开始截取文字 规则为 \d+(\.\d+)? , 截取下的文本以及剩余文本会被trim_space
+- {:s} 开始截取文字 规则为 \W+ , 截取下的文本以及剩余文本会被trim_space
+- {:e} impl take [\W\w]+  , 截取下的文本以及剩余文本会被trim_space
+- 如果需要赋值给变量, 那么在冒号前加入变量名 {name:s} , 最后应用 let some = From::str(截取到的内容), 若成功转换则 赋值name给
+- {}? {}+ {}* : 括号结束的后一位特殊符号分别代表: 可选,至少重复1次,重复0或者多次
+- ?结尾要使用Option类型当参数, +和*需要使用Vec当作参数 同样会应用FromStr
+- [] 表示文字枚举, 使用 | 分割, 同样在前面加入变量名 [name:] 可以赋值给变量, 支持 + 和 * 和 ?
+- Tips:
+  - 如果@不是全体成员可以映射成数字类型
+  - {:s}+ 会一直匹配到结束, 因为数字型属于字符串
 
 ## Features
 
@@ -150,4 +197,4 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
   - [x] 消息：文本、表情、图片、语音、短视频、@某人、回复、合并转发、合并转发自定义节点
   - [ ] 消息: 猜拳魔法表情、掷骰子魔法表情、戳一戳、窗口抖动（戳一戳）、匿名发消息、链接分享、推荐好友、推荐群、位置、音乐分享、音乐自定义分享、合并转发节点、XML 消息、JSON 消息
 - [ ] 拓展
-  - [ ] 命令匹配、命令宏
+  - [x] 命令匹配、命令宏

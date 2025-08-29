@@ -5,6 +5,7 @@ pub mod event;
 pub mod onebot11_api;
 pub mod process;
 pub mod re_export;
+pub mod command;
 
 pub mod prelude {
     pub use crate::bot_context::*;
@@ -12,5 +13,5 @@ pub mod prelude {
     pub use crate::event::*;
     pub use crate::onebot11_api::*;
     pub use crate::process::*;
-    pub use runbot_codegen::processor;
+    pub use runbot_codegen::{command, processor};
 }

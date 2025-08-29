@@ -12,6 +12,7 @@ async fn main() {
         .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
         .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .add_processor(DEMO_AUTO_APPROVE_FN)
+        .add_processor(DEMO_COMMAND_BAN)
         .build()
         .unwrap();
     loop_client(bot_ctx).await.unwrap();
@@ -69,4 +70,68 @@ pub async fn demo_auto_approve_fn(bot_ctx: Arc<BotContext>, request: &Request) -
         _ => {}
     }
     Ok(false)
+}
+
+// 中括号匹配结尾需要为冒号和英文字符
+// {:n} 会截从文本开始截取文字 规则为 \d+(\.\d+)? , 截取下的文本以及剩余文本会被trim_space
+// {:s} 开始截取文字 规则为 \W+ , 截取下的文本以及剩余文本会被trim_space
+// {:e} impl take [\W\w]+  , 截取下的文本以及剩余文本会被trim_space
+// 如果需要赋值给变量, 那么在冒号前加入变量名 {name:s} , 最后应用 let some = From::str(截取到的内容), 若成功转换则 赋值name给
+// {}? {}+ {}* : 括号结束的后一位特殊符号分别代表: 可选,至少重复1次,重复0或者多次
+// ?结尾要使用Option类型当参数, +和*需要使用Vec当作参数 同样会应用FromStr
+// [] 表示文字枚举, 使用 | 分割, 同样在前面加入变量名 [name:] 可以赋值给变量, 支持 + 和 * 和 ?
+// Tips:
+// - 如果@不是全体成员可以映射成数字类型
+// - {:s}+ 会一直匹配到结束, 因为数字型属于字符串
+#[command(pattern = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
+pub async fn demo_command_ban(
+    bot_ctx: Arc<BotContext>,
+    message: &Message,
+    time: i64,
+    unit: Option<String>,
+    user: Vec<i64>,
+) -> Result<bool> {
+    let unit = match unit {
+        Some(unit) => match unit.as_str() {
+            "s" => 1,
+            "m" => 60,
+            "h" => 3600,
+            _ => unreachable!(),
+        },
+        None => 1,
+    };
+    let time = time * unit;
+    let msg = format!("禁用用户 {:?} {time}秒", user);
+    match message.message_type {
+        MessageType::Group => {
+            bot_ctx.send_group_message(message.group_id, msg).await?;
+        }
+        MessageType::Private => {
+            bot_ctx.send_private_message(message.user_id, msg).await?;
+        }
+        _ => {}
+    }
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[tokio::test]
+    async fn test_demo_command_ban() {
+        let bot_ctx = BotContextBuilder::new().build().unwrap();
+        let message = Message {
+            message_type: MessageType::Group,
+            message: vec![MessageData::Text(MessageText {
+                text: "-ban 10 1234567890".to_string(),
+            })],
+            ..Default::default()
+        };
+        let result = DemoCommandBan
+            .process_message(bot_ctx, &message)
+            .await
+            .unwrap();
+        assert!(result);
+    }
 }

@@ -20,6 +20,7 @@ runbot-codegen = { path = "../runbot-codegen" }
 anyhow = "1.0"
 async-trait = "0.1"
 dashmap = "6.1"
+regex = "1.11"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

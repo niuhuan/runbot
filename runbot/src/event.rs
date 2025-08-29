@@ -26,6 +26,12 @@ pub enum PostType {
     Unknown(String),
 }
 
+impl Default for PostType {
+    fn default() -> Self {
+        PostType::Unknown("".to_string())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum MetaEvent {
     Lifecycle(Lifecycle),
@@ -72,7 +78,7 @@ pub struct Response {
     pub echo: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Message {
     pub self_id: i64,
     pub user_id: i64,
@@ -97,6 +103,12 @@ pub enum MessageType {
     Unknown(String),
 }
 
+impl Default for MessageType {
+    fn default() -> Self {
+        MessageType::Unknown("".to_string())
+    }
+}
+
 #[derive(Debug, Clone, runbot_codegen::UnknownTypeSerde, runbot_codegen::ParseJson)]
 pub enum MessageFormat {
     Array,
@@ -111,7 +123,19 @@ pub enum MessageSubType {
     Unknown(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+impl Default for MessageSubType {
+    fn default() -> Self {
+        MessageSubType::Unknown("".to_string())
+    }
+}
+
+impl Default for MessageFormat {
+    fn default() -> Self {
+        MessageFormat::Unknown("".to_string())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson, Default)]
 pub struct Sender {
     pub user_id: i64,
     #[serde(default)]
