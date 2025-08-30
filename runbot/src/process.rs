@@ -1,6 +1,9 @@
 use std::{fmt::Debug, sync::Arc};
 
-use crate::{bot_context::BotContext, event};
+use crate::{
+    bot_context::BotContext,
+    event::{self, Post},
+};
 use async_trait::async_trait;
 
 #[derive(Debug)]
@@ -9,6 +12,7 @@ pub enum Processor {
     Message(Box<dyn MessageProcessor>),
     Notice(Box<dyn NoticeProcessor>),
     Request(Box<dyn RequestProcessor>),
+    Module(Box<dyn ModuleProcessor>),
 }
 
 impl Processor {
@@ -18,6 +22,7 @@ impl Processor {
             Processor::Message(processor) => processor.id(),
             Processor::Notice(processor) => processor.id(),
             Processor::Request(processor) => processor.id(),
+            Processor::Module(processor) => processor.id(),
         }
     }
 
@@ -34,6 +39,8 @@ impl Processor {
         {
             processor.process_request(bot_ctx, request).await
         } else if let Processor::Post(processor) = self {
+            processor.process_post(bot_ctx, post).await
+        } else if let Processor::Module(processor) = self {
             processor.process_post(bot_ctx, post).await
         } else {
             Ok(false)
@@ -82,6 +89,50 @@ pub trait RequestProcessor: Send + Sync + Debug {
     ) -> anyhow::Result<bool>;
 }
 
+#[async_trait]
+pub trait ModuleProcessor: Send + Sync + Debug {
+    fn id(&self) -> &'static str;
+    fn name(&self) -> &'static str;
+    fn help(&self) -> &'static str;
+    async fn process_post(
+        &self,
+        bot_ctx: Arc<BotContext>,
+        post: &event::Post,
+    ) -> anyhow::Result<bool>;
+    fn processors(&self) -> Arc<Vec<Processor>>;
+}
+
+#[derive(Debug)]
+pub struct ProcessModule {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub help: &'static str,
+    pub processors: Arc<Vec<Processor>>,
+}
+
+#[async_trait]
+impl ModuleProcessor for ProcessModule {
+    fn id(&self) -> &'static str {
+        self.id
+    }
+    fn name(&self) -> &'static str {
+        self.name
+    }
+    fn help(&self) -> &'static str {
+        self.help
+    }
+    async fn process_post(
+        &self,
+        bot_ctx: Arc<BotContext>,
+        post: &event::Post,
+    ) -> anyhow::Result<bool> {
+        loop_processors(bot_ctx, self.processors.iter(), post).await
+    }
+    fn processors(&self) -> Arc<Vec<Processor>> {
+        self.processors.clone()
+    }
+}
+
 impl Into<Processor> for Box<dyn PostProcessor> {
     fn into(self) -> Processor {
         Processor::Post(self)
@@ -104,4 +155,42 @@ impl Into<Processor> for Box<dyn RequestProcessor> {
     fn into(self) -> Processor {
         Processor::Request(self)
     }
+}
+
+impl Into<Processor> for Box<dyn ModuleProcessor> {
+    fn into(self) -> Processor {
+        Processor::Module(self)
+    }
+}
+
+pub(crate) async fn loop_processors(
+    bot_ctx: Arc<BotContext>,
+    processor_iter: core::slice::Iter<'_, Processor>,
+    post: &Post,
+) -> anyhow::Result<bool> {
+    for processor in processor_iter {
+        let processe_result = processor.process(bot_ctx.clone(), post).await;
+        match processe_result {
+            Ok(b) => {
+                if b {
+                    tracing::debug!(
+                        "post processed, id : {:?} , post : {:?}",
+                        processor.id(),
+                        post
+                    );
+                    return Ok(b);
+                }
+            }
+            Err(err) => {
+                tracing::error!(
+                    "processor error, id: {:?} , post {:?} error: {:?}",
+                    processor.id(),
+                    post,
+                    err
+                );
+                return Err(err);
+            }
+        }
+    }
+    Ok(false)
 }

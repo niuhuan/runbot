@@ -1,7 +1,9 @@
 extern crate proc_macro;
 
+use std::collections::HashMap;
+
 use convert_case::{Case, Casing};
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use syn::{FnArg, parse_macro_input, spanned::Spanned};
@@ -1175,6 +1177,357 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
     }
 
     result
+}
+
+#[derive(Default, Debug)]
+struct ModuleAttributes {
+    name: Option<syn::LitStr>,
+    help: Option<syn::LitStr>,
+    processors: Option<syn::LitStr>,
+}
+
+impl ModuleAttributes {
+    fn parse(&mut self, ts: &TokenStream) -> syn::Result<()> {
+        if ts.is_empty() {
+            return Ok(());
+        }
+        let error_msg = "All attributes should be `ident = \"value\"` joined by ,";
+        let tree_vec = ts.clone().into_iter().collect::<Vec<_>>();
+        let mut idx: usize = 0;
+        loop {
+            if idx >= tree_vec.len() {
+                break;
+            }
+            let ident = &tree_vec[idx];
+            idx += 1;
+            let ident = match ident {
+                TokenTree::Ident(ident) => ident,
+                _ => {
+                    return Err(syn::Error::new(ident.span().into(), error_msg));
+                }
+            };
+            if idx >= tree_vec.len() {
+                return Err(syn::Error::new(ident.span().into(), error_msg));
+            }
+            let punct = &tree_vec[idx];
+            idx += 1;
+            match punct {
+                TokenTree::Punct(punct) => {
+                    let equals_char: char = '=';
+                    if equals_char != punct.as_char() {
+                        return Err(syn::Error::new(punct.span().into(), error_msg));
+                    }
+                }
+                _ => return Err(syn::Error::new(punct.span().into(), error_msg)),
+            }
+            if idx >= tree_vec.len() {
+                return Err(syn::Error::new(punct.span().into(), error_msg));
+            }
+            let literal = &tree_vec[idx];
+            idx += 1;
+            let literal = match literal {
+                TokenTree::Literal(literal) => {
+                    let literal_str = literal.to_string();
+                    syn::parse_str::<syn::LitStr>(&literal_str)?
+                }
+                _ => return Err(syn::Error::new(literal.span().into(), error_msg)),
+            };
+            match ident.to_string().as_str() {
+                "name" => {
+                    if self.name.is_some() {
+                        return Err(syn::Error::new(ident.span().into(), "duplicate 'name'"));
+                    }
+                    self.name = Some(literal);
+                }
+                "help" => {
+                    if self.help.is_some() {
+                        return Err(syn::Error::new(ident.span().into(), "duplicate 'help'"));
+                    }
+                    self.help = Some(literal);
+                }
+                "processors" => {
+                    if self.processors.is_some() {
+                        return Err(syn::Error::new(
+                            ident.span().into(),
+                            "duplicate 'processors'",
+                        ));
+                    }
+                    self.processors = Some(literal);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        ident.span().into(),
+                        format!("not allowed idnet '{}'", ident.to_string()),
+                    ));
+                }
+            }
+            if idx >= tree_vec.len() {
+                break;
+            }
+            let punct = &tree_vec[idx];
+            idx += 1;
+            match punct {
+                TokenTree::Punct(punct) => {
+                    let equals_char: char = ',';
+                    if equals_char != punct.as_char() {
+                        return Err(syn::Error::new(punct.span().into(), error_msg));
+                    }
+                }
+                _ => return Err(syn::Error::new(punct.span().into(), error_msg)),
+            }
+        }
+        Ok(())
+    }
+}
+
+#[proc_macro_error]
+#[proc_macro_attribute]
+pub fn module(args: TokenStream, input: TokenStream) -> TokenStream {
+    //// attrs
+    // []
+    // [ Ident Punct(=) Literal Punct(,) ]
+    let mut attrs = ModuleAttributes::default();
+    match attrs.parse(&args) {
+        Ok(_) => {}
+        Err(err) => {
+            abort!(&args.into_iter().take(1).last().unwrap().span(), err);
+        }
+    };
+    //// impl
+    let module_impl = parse_macro_input!(input as syn::ItemImpl);
+    let module_impl_span = module_impl.span();
+    let struct_ident = match *module_impl.self_ty {
+        syn::Type::Path(ref type_path) => &type_path.path.segments.last().unwrap().ident,
+        _ => abort!(&module_impl_span, "Expected a struct type for impl block"),
+    };
+    let struct_name = struct_ident.to_string();
+    let functions = module_impl
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            syn::ImplItem::Fn(m) => Some(m),
+            _ => None,
+        })
+        .collect::<Vec<&syn::ImplItemFn>>();
+    //// collect attrs and impl functions
+    let mut function_map = functions
+        .iter()
+        .map(|f| (f.sig.ident.to_string(), *f))
+        .collect::<HashMap<String, &syn::ImplItemFn>>();
+    let function_names = functions
+        .iter()
+        .map(|f| f.sig.ident.to_string())
+        .collect::<Vec<String>>();
+    // id
+    let id_function_defined = function_names.contains(&"id".to_owned());
+    let id_tokens = if id_function_defined {
+        let id_function = function_map.remove(&"id".to_owned()).unwrap();
+        quote! {
+            #id_function
+        }
+    } else {
+        quote! {
+            fn id() -> &'static str {
+                concat!(env!("CARGO_PKG_NAME"), "::", module_path!(), "::", #struct_name)
+            }
+        }
+    };
+    // name
+    let name_function_defined = function_names.contains(&"name".to_owned());
+    let name_tokens = if let Some(name) = attrs.name {
+        if name_function_defined {
+            abort!(
+                &module_impl_span,
+                "both define `attribute name` and `function name`, only one can be defined"
+            );
+        }
+        let lit_str = name.value();
+        if lit_str.ends_with(")") {
+            let expr: syn::Expr = match syn::parse_str(lit_str.as_str()) {
+                Ok(expr) => expr,
+                Err(error) => abort!(&module_impl_span, error),
+            };
+            quote! {
+                fn name() -> &'static str {
+                    #expr
+                }
+            }
+        } else {
+            quote! {
+                fn name() -> &'static str {
+                    #name
+                }
+            }
+        }
+    } else {
+        if !name_function_defined {
+            quote! {
+                fn name() -> &'static str {
+                    #struct_name
+                }
+            }
+        } else {
+            let name_function = function_map.remove(&"name".to_owned()).unwrap();
+            quote! {
+                #name_function
+            }
+        }
+    };
+    // help
+    let help_function_defined = function_names.contains(&"help".to_owned());
+    let help_tokens = if let Some(help) = attrs.help {
+        if help_function_defined {
+            abort!(
+                &module_impl_span,
+                "both define `attribute help` and `function help`, only one can be defined"
+            );
+        }
+        let lit_str = help.value();
+        if lit_str.ends_with(")") {
+            let expr: syn::Expr = match syn::parse_str(lit_str.as_str()) {
+                Ok(expr) => expr,
+                Err(error) => abort!(&module_impl_span, error),
+            };
+            quote! {
+                fn help() -> &'static str {
+                    #expr
+                }
+            }
+        } else {
+            quote! {
+                fn help() -> &'static str {
+                    #help
+                }
+            }
+        }
+    } else {
+        if !help_function_defined {
+            quote! {
+                fn help() -> &'static str {
+                    #struct_name
+                }
+            }
+        } else {
+            let help_function = function_map.remove(&"help".to_owned()).unwrap();
+            quote! {
+                #help_function
+            }
+        }
+    };
+    // processors
+    let processors_function_defined = function_names.contains(&"processors".to_owned());
+    let processors_tokens = if let Some(processors) = attrs.processors {
+        if processors_function_defined {
+            abort!(
+                &module_impl_span,
+                "both define `attribute processors` and `function processors`, only one can be defined"
+            );
+        }
+        let lit_str = processors.value();
+        let lit_str_array = lit_str
+            .split("+")
+            .into_iter()
+            .filter_map(|s| {
+                let s = s.trim();
+                if s.is_empty() { None } else { Some(s) }
+            })
+            .map(|sn| {
+                if sn.ends_with(")") {
+                    let expr: syn::Expr = match syn::parse_str(sn) {
+                        Ok(expr) => expr,
+                        Err(error) => abort!(&module_impl_span, error),
+                    };
+                    quote! {
+                        #expr
+                    }
+                } else {
+                    let ident = proc_macro2::Ident::new(
+                        &sn.to_case(Case::UpperSnake),
+                        proc_macro2::Span::call_site(),
+                    );
+                    quote! {
+                        #ident.into()
+                    }
+                }
+            })
+            .reduce(|a, b| {
+                let mut t = proc_macro2::TokenStream::from(a);
+                let com = quote! {,};
+                t.extend(com);
+                t.extend(b);
+                t
+            });
+        let lit_str_array = if let Some(lit_str_array) = lit_str_array {
+            lit_str_array
+        } else {
+            quote! {}
+        };
+        quote! {
+            fn processors() -> Vec<Processor> {
+                vec![#lit_str_array]
+            }
+        }
+    } else {
+        if !processors_function_defined {
+            quote! {
+                fn processors() -> Vec<Processor> {
+                    vec![]
+                }
+            }
+        } else {
+            let processors_function = function_map.remove(&"processors".to_owned()).unwrap();
+            quote! {
+                #processors_function
+            }
+        }
+    };
+    // surplus_functions
+    let mut surplus_functions_tokens = quote! {};
+    for (_, function) in function_map {
+        surplus_functions_tokens.extend(quote! {
+            #function
+        });
+    }
+    // into processor
+    let struct_define = quote! {
+        #[derive(Debug, Copy, Clone)]
+        pub struct #struct_ident();
+    };
+    let into_process = quote! {
+        impl Into<Processor> for #struct_ident {
+            fn into(self) -> Processor {
+                Processor::Module(Box::new(ProcessModule {
+                    id: Self::id(),
+                    name: Self::name(),
+                    help: Self::help(),
+                    processors: Self::processors().into(),
+                }))
+            }
+        }
+    };
+    // static
+    let static_name = proc_macro2::Ident::new(
+        &struct_ident.to_string().to_case(Case::UpperSnake),
+        proc_macro2::Span::call_site(),
+    );
+    let static_instance = quote! {
+        pub static #static_name: #struct_ident = #struct_ident();
+    };
+    //// output
+    let output = quote! {
+        #struct_define
+        #[::runbot::re_export::async_trait::async_trait]
+        impl Module for #struct_ident {
+            #id_tokens
+            #name_tokens
+            #help_tokens
+            #processors_tokens
+            #surplus_functions_tokens
+        }
+        #into_process
+        #static_instance
+    };
+    emit!(output)
 }
 
 #[cfg(test)]

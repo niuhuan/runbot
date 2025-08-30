@@ -13,6 +13,7 @@ async fn main() {
         .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .add_processor(DEMO_AUTO_APPROVE_FN)
         .add_processor(DEMO_COMMAND_BAN)
+        .add_processor(EXAMPLE_MOD)
         .build()
         .unwrap();
     loop_client(bot_ctx).await.unwrap();
@@ -134,4 +135,30 @@ mod tests {
             .unwrap();
         assert!(result);
     }
+}
+
+#[module(
+    name = "ExampleMod",
+    help = "help()",
+    processors = "mod_process_a+mod_process_b_instance()"
+)]
+impl Module for ExampleMod {}
+
+// processors = "mod_process_a"
+fn help() -> &'static str {
+    "我是帮助"
+}
+
+#[processor]
+async fn mod_process_a(_bot_ctx: Arc<BotContext>, _messgae: &Message) -> Result<bool> {
+    Ok(false)
+}
+
+#[processor]
+async fn mod_process_b(_bot_ctx: Arc<BotContext>, _messgae: &Message) -> Result<bool> {
+    Ok(false)
+}
+
+fn mod_process_b_instance() -> Processor {
+    MOD_PROCESS_B.into()
 }

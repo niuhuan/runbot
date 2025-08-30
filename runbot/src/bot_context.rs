@@ -4,7 +4,7 @@ use std::vec;
 
 use crate::error::{Error, Result};
 use crate::event::*;
-use crate::process::Processor;
+use crate::process::{Processor, loop_processors};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::SinkExt;
@@ -98,30 +98,7 @@ impl BotContext {
                 match parse_post(text) {
                     Ok(post) => {
                         tracing::debug!("parse post: {:?}", post);
-                        for processor in self.processors.iter() {
-                            let processe_result = processor.process(bot_ctx.clone(), &post).await;
-                            match processe_result {
-                                Ok(b) => {
-                                    if b {
-                                        tracing::debug!(
-                                            "post processed, id : {:?} , post : {:?}",
-                                            processor.id(),
-                                            post
-                                        );
-                                        break;
-                                    }
-                                }
-                                Err(err) => {
-                                    tracing::error!(
-                                        "processor error, id: {:?} , post {:?} error: {:?}",
-                                        processor.id(),
-                                        post,
-                                        err
-                                    );
-                                    break;
-                                }
-                            }
-                        }
+                        let _ = loop_processors(bot_ctx, self.processors.iter(), &post).await;
                     }
                     Err(e) => {
                         tracing::error!("Parse post error: {:?}", e);
@@ -132,6 +109,10 @@ impl BotContext {
                 tracing::error!("WS received: {:?}", msg);
             }
         }
+    }
+
+    pub fn processors(&self) -> Arc<Vec<Processor>> {
+        self.processors.clone()
     }
 }
 

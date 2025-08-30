@@ -3,21 +3,28 @@ RUNBOT
 
 Rust one bot v11 协议 （ 正向ws / 反向ws ）实现。
 
+- 开箱即用, 使用过程宏定义功能和模块, 轻松实现机器人。
+- 具有极高的自由度, 支持模块多层嵌套。
 
 ## 准备环境
 
 https://llonebot.com/guide/getting-started
 
-## 宏定义、开箱即用
+## 开始
+
+
+以下代码来自 [runbot/examples/client.rs](runbot/examples/client.rs) , 您可以直接跟踪查看。
+
+- 您可以clone项目并运行 `cargo run --example client`  运行正向WS事例
+- 您可以clone项目并运行 `cargo run --example server`  运行反向WS事例
 
 #### 0. 引入依赖
 
 ```toml
-# 使用github版本
-runbot = { git = "https://github.com/niuhuan/runbot.git" }
-
 # 使用crates.io版本
 runbot = "0"
+# 使用github版本
+runbot = { git = "https://github.com/niuhuan/runbot.git" }
 ```
 
 #### 1. 定义事件处理器
@@ -45,6 +52,8 @@ pub async fn demo_processor_fn(bot_ctx: Arc<BotContext>, message: &Message) -> R
 
 #### 2. 连接bot
 
+`add_processor`的功能或模块会依次调用, 直至返回true或者返回Error, 会停止链路.
+
 ```rust
 #[tokio::main]
 async fn main() {
@@ -67,12 +76,7 @@ async fn main() {
 
 ![hello](images/hello.png)
 
-## Tips
-
-以上代码来自 [runbot/examples/client.rs](runbot/examples/client.rs)
-
-- 您可以clone项目并运行 `cargo run --example client`  运行正向WS事例
-- 您可以clone项目并运行 `cargo run --example server`  运行反向WS事例
+## 指南
 
 #### 发送消息以及消息链 (文字以及图片)
 
@@ -166,7 +170,47 @@ pub async fn demo_command_ban(
   - 如果@不是全体成员可以映射成数字类型
   - {:s}+ 会一直匹配到结束, 因为数字型属于字符串
 
-## Features
+## 模块
+
+- 声明模块无需定义struct直接定义一个impl。
+- name / help / processors 对应着模块的 名称 / 帮助文本 / 模块功能。
+  - 以上参数可以从module宏中省略, name 和 help 会默认为Struct的名称, processors会默认空数组。
+  - 可以在impl模块中函数实现trait中的方法, 对函数进行覆盖。
+  - 模块也是一个功能(processor), 可以嵌套。
+  - ExampleMod代表直接使用字符串, help()代表调用help方法获取, 多个功能用`+`连接
+- 机器人不包含菜单功能, 您可以直接使用 BotContext.processors() 获得所有功能, 自由实现您的菜单, 无论是打印还是绘制图片。
+
+```rust
+// .add_processor(EXAMPLE_MOD)
+
+#[module(
+    name = "ExampleMod",
+    help = "help()",
+    processors = "mod_process_a+mod_process_b_instance()"
+)]
+impl Module for ExampleMod {}
+
+// processors = "mod_process_a"
+fn help() -> &'static str {
+    "我是帮助"
+}
+
+#[processor]
+async fn mod_process_a(_bot_ctx: Arc<BotContext>, _messgae: &Message) -> Result<bool> {
+    Ok(false)
+}
+
+#[processor]
+async fn mod_process_b(_bot_ctx: Arc<BotContext>, _messgae: &Message) -> Result<bool> {
+    Ok(false)
+}
+
+fn mod_process_b_instance() -> Processor {
+    MOD_PROCESS_B.into()
+}
+```
+
+## 特性
 
 https://llonebot.apifox.cn/
 
@@ -196,5 +240,6 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 - [x] 类型
   - [x] 消息：文本、表情、图片、语音、短视频、@某人、回复、合并转发、合并转发自定义节点
   - [ ] 消息: 猜拳魔法表情、掷骰子魔法表情、戳一戳、窗口抖动（戳一戳）、匿名发消息、链接分享、推荐好友、推荐群、位置、音乐分享、音乐自定义分享、合并转发节点、XML 消息、JSON 消息
-- [ ] 拓展
-  - [x] 命令匹配、命令宏
+- [x] 拓展
+  - [x] 机器人命令匹配
+  - [x] 模块
