@@ -1,7 +1,4 @@
 [workspace]
-package.version = "0.0.5"
+package.version = "0.0.6"
 resolver = "3"
-members = [
-    "runbot",
-    "runbot-codegen",
-]
+members = ["runbot", "runbot-codegen"]
