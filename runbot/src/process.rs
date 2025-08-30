@@ -12,6 +12,15 @@ pub enum Processor {
 }
 
 impl Processor {
+    pub fn id(&self) -> &'static str {
+        match self {
+            Processor::Post(processor) => processor.id(),
+            Processor::Message(processor) => processor.id(),
+            Processor::Notice(processor) => processor.id(),
+            Processor::Request(processor) => processor.id(),
+        }
+    }
+
     pub async fn process(
         &self,
         bot_ctx: Arc<BotContext>,
@@ -34,6 +43,7 @@ impl Processor {
 
 #[async_trait]
 pub trait PostProcessor: Send + Sync + Debug {
+    fn id(&self) -> &'static str;
     async fn process_post(
         &self,
         bot_ctx: Arc<BotContext>,
@@ -43,6 +53,7 @@ pub trait PostProcessor: Send + Sync + Debug {
 
 #[async_trait]
 pub trait MessageProcessor: Send + Sync + Debug {
+    fn id(&self) -> &'static str;
     async fn process_message(
         &self,
         bot_ctx: Arc<BotContext>,
@@ -52,6 +63,7 @@ pub trait MessageProcessor: Send + Sync + Debug {
 
 #[async_trait]
 pub trait NoticeProcessor: Send + Sync + Debug {
+    fn id(&self) -> &'static str;
     async fn process_notice(
         &self,
         bot_ctx: Arc<BotContext>,
@@ -61,6 +73,8 @@ pub trait NoticeProcessor: Send + Sync + Debug {
 
 #[async_trait]
 pub trait RequestProcessor: Send + Sync + Debug {
+    fn id(&self) -> &'static str;
+
     async fn process_request(
         &self,
         bot_ctx: Arc<BotContext>,

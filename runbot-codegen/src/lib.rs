@@ -122,6 +122,16 @@ pub fn processor(_args: TokenStream, input: TokenStream) -> TokenStream {
 
         #[::runbot::re_export::async_trait::async_trait]
         impl #trait_name for #struct_name {
+            fn id(&self) -> &'static str {
+                concat!(
+                    env!("CARGO_PKG_NAME"),
+                    "::",
+                    module_path!(),
+                    "::",
+                    stringify!(#fn_name)
+                )
+            }
+
             #asyncness fn #trait_fn_name(&self, #first_param, #second_param) #return_type {
                 #fn_name(#first_param_ident, #second_param_ident).await
             }
@@ -929,6 +939,15 @@ pub fn command(args: TokenStream, input: TokenStream) -> TokenStream {
 
         #[::runbot::re_export::async_trait::async_trait]
         impl MessageProcessor for #struct_name {
+            fn id(&self) -> &'static str {
+                concat!(
+                    env!("CARGO_PKG_NAME"),
+                    "::",
+                    module_path!(),
+                    "::",
+                    stringify!(#fn_name)
+                )
+            }
             #asyncness fn process_message(&self, #first_param, #second_param) #return_type {
                 #define_command_lopper
                 #define_lopper_value

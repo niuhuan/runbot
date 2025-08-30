@@ -103,13 +103,18 @@ impl BotContext {
                             match processe_result {
                                 Ok(b) => {
                                     if b {
+                                        tracing::debug!(
+                                            "post processed, id : {:?} , post : {:?}",
+                                            processor.id(),
+                                            post
+                                        );
                                         break;
                                     }
                                 }
                                 Err(err) => {
                                     tracing::error!(
-                                        "processor {:?} process post {:?} error: {:?}",
-                                        processor,
+                                        "processor error, id: {:?} , post {:?} error: {:?}",
+                                        processor.id(),
                                         post,
                                         err
                                     );
@@ -119,7 +124,7 @@ impl BotContext {
                         }
                     }
                     Err(e) => {
-                        tracing::error!("WS received: {:?}", e);
+                        tracing::error!("Parse post error: {:?}", e);
                     }
                 }
             }
