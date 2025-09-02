@@ -125,8 +125,9 @@ async fn main() {
 
 #### 机器人命令
 
+
 ```rust
-#[command(pattern = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
+#[processor(command = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
 pub async fn demo_command_ban(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -157,7 +158,8 @@ pub async fn demo_command_ban(
     Ok(true)
 }
 ```
-
+- 使用 `#[processor(command = "...")]` 定义命令
+- 必须以 bot_ctx: Arc<BotContext>, message: &Message 开头
 - 中括号匹配结尾需要为冒号和英文字符
 - {:n} 会截从文本开始截取文字 规则为 \d+(\.\d+)? , 截取下的文本以及剩余文本会被trim_space
 - {:s} 开始截取文字 规则为 \W+ , 截取下的文本以及剩余文本会被trim_space

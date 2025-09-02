@@ -84,7 +84,7 @@ pub async fn demo_auto_approve_fn(bot_ctx: Arc<BotContext>, request: &Request) -
 // Tips:
 // - 如果@不是全体成员可以映射成数字类型
 // - {:s}+ 会一直匹配到结束, 因为数字型属于字符串
-#[command(pattern = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
+#[processor(command = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
 pub async fn demo_command_ban(
     bot_ctx: Arc<BotContext>,
     message: &Message,

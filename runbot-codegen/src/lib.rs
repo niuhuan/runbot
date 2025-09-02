@@ -25,9 +25,36 @@ macro_rules! emit {
     }};
 }
 
+#[derive(Default, Debug)]
+struct ProcessorAttributes {
+    command: Option<syn::LitStr>,
+}
+
+impl ProcessorAttributes {
+    fn parse(&mut self, meta: syn::meta::ParseNestedMeta) -> syn::Result<()> {
+        if meta.path.is_ident("command") {
+            self.command = Some(meta.value()?.parse()?);
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn processor(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn processor(args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut attrs = ProcessorAttributes::default();
+    let command_parser = syn::meta::parser(|meta| attrs.parse(meta));
+    parse_macro_input!(args with command_parser);
+    if attrs.command.is_some() {
+        command_processor(attrs.command.unwrap(), input)
+    } else {
+        normal_processor(input)
+    }
+}
+
+fn normal_processor(input: TokenStream) -> TokenStream {
     let method = parse_macro_input!(input as syn::ItemFn);
     let method_clone = method.clone();
     if method.sig.asyncness.is_none() {
@@ -308,38 +335,16 @@ pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
     emit!(r#gen)
 }
 
-#[derive(Default, Debug)]
-struct CommandAttributes {
-    pattern: Option<syn::LitStr>,
-}
-
-impl CommandAttributes {
-    fn parse(&mut self, meta: syn::meta::ParseNestedMeta) -> syn::Result<()> {
-        if meta.path.is_ident("pattern") {
-            self.pattern = Some(meta.value()?.parse()?);
-            Ok(())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[proc_macro_error]
-#[proc_macro_attribute]
-pub fn command(args: TokenStream, input: TokenStream) -> TokenStream {
+fn command_processor(bot_command_pattern_str: syn::LitStr, input: TokenStream) -> TokenStream {
     // method
     let method = parse_macro_input!(input as syn::ItemFn);
     let span = method.span();
     let method_clone = method.clone();
     // attrs
-    let mut attrs = CommandAttributes::default();
-    let command_parser = syn::meta::parser(|meta| attrs.parse(meta));
-    parse_macro_input!(args with command_parser);
-    let bot_command_pattern_str = if let Some(lit_str) = attrs.pattern {
-        lit_str.value()
-    } else {
-        abort!(&method.span(), "command pattren missing");
-    };
+    let bot_command_pattern_str = bot_command_pattern_str.value();
+    if bot_command_pattern_str.is_empty() {
+        abort!(&span, "command pattern is empty");
+    }
     let plain_text_regex =
         regex::Regex::new(r#"^[A-Za-z0-9_/\p{Han}\p{Hiragana}\p{Katakana}]+$"#).unwrap();
     let mut bot_command_items = vec![];

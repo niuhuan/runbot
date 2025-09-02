@@ -5,7 +5,7 @@ use std::sync::Arc;
 fn main() {}
 
 // 测试 {:s} 和 ? 的组合
-#[command(pattern = "[-|/|~]remind {time:n}[unit:s|m|h]? {action:s}? {message_text:e}")]
+#[processor(command = "[-|/|~]remind {time:n}[unit:s|m|h]? {action:s}? {message_text:e}")]
 pub async fn demo_command_remind(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -39,7 +39,7 @@ pub async fn demo_command_remind(
 }
 
 // 测试 {:n}* 和 [] 的组合
-#[command(pattern = "[-|/|~]calc {numbers:n}* [operation:+|-|*|/] {result:n}")]
+#[processor(command = "[-|/|~]calc {numbers:n}* [operation:+|-|*|/] {result:n}")]
 pub async fn demo_command_calc(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -81,7 +81,7 @@ pub async fn demo_command_calc(
 }
 
 // 测试 {:s}+ 和 [] 的组合
-#[command(pattern = "[-|/|~]tag {tags:s}+ [tag_type:user|group|all]? {message_text:e}")]
+#[processor(command = "[-|/|~]tag {tags:s}+ [tag_type:user|group|all]? {message_text:e}")]
 pub async fn demo_command_tag(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -109,7 +109,7 @@ pub async fn demo_command_tag(
 }
 
 // 测试 {:n}? 和 {:e} 的组合
-#[command(pattern = "[-|/|~]echo {count:n}? {text:e}")]
+#[processor(command = "[-|/|~]echo {count:n}? {text:e}")]
 pub async fn demo_command_echo(
     bot_ctx: Arc<BotContext>,
     message: &Message,
@@ -133,8 +133,8 @@ pub async fn demo_command_echo(
 }
 
 // 测试复杂的组合：{:n}* {:s}? []+ {:e}
-#[command(
-    pattern = "[-|/|~]schedule {times:n}* {priority:s}? [actions:work|play|study|rest]+ {description:e}"
+#[processor(
+    command = "[-|/|~]schedule {times:n}* {priority:s}? [actions:work|play|study|rest]+ {description:e}"
 )]
 pub async fn demo_command_schedule(
     bot_ctx: Arc<BotContext>,

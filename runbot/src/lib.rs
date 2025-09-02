@@ -15,5 +15,5 @@ pub mod prelude {
     pub use crate::module::*;
     pub use crate::onebot11_api::*;
     pub use crate::process::*;
-    pub use runbot_codegen::{command, module, processor};
+    pub use runbot_codegen::{module, processor};
 }
