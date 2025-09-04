@@ -6,12 +6,7 @@ Rust one bot v11 协议 （ 正向ws / 反向ws ）实现。
 - 开箱即用, 使用过程宏定义功能和模块, 轻松实现机器人。
 - 具有极高的自由度, 支持模块多层嵌套。
 
-## 准备环境
-
-https://llonebot.com/guide/getting-started
-
 ## 开始
-
 
 以下代码来自 [runbot/examples/client.rs](runbot/examples/client.rs) , 您可以直接跟踪查看。
 
@@ -245,3 +240,26 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 - [x] 拓展
   - [x] 机器人命令匹配
   - [x] 模块
+
+## 环境
+
+#### 需要一个支持onebot v11协议的机器人, 推荐:
+
+- https://llonebot.com/guide/getting-started (Windows)
+- https://napneko.github.io/ (Windows/Linux/MacOS)
+- https://github.com/NapNeko/NapCat-Docker (docker)
+
+Tips:
+  1. windows推荐llonebot一键启动，安装QQ后直接双击启动运行即可。
+  2. linux 推荐 NapCat-Docker, 创建/opt/napcat/，chown到自己的用户，按照项目给的docker命令运行, 并且增加以下volumn挂载, 容器删除再次创建时数据得以保留
+  - /opt/napcat/.config/QQ/:/app/.config/QQ/         (存放QQ数据，用于自动登录)
+  - /opt/napcat/napcat/config/:/app/napcat/config/   (存放napcat配置文件)
+  - /opt/napcat/disk/:/opt/napcat/disk/              (存放图片等数据，用于和其他容器文件交互)
+  docker容器启动后运行 docker logs -f 扫码登录，并且使用napcat作为密码登录管理后台，设置自动登录的QQ号，下次启动容器时将会自动登录。然后增加一个ws服务端口（例如3001），用于本框架的正向连接。
+
+
+## 贡献
+
+**Ru**stO**n**e**Bot** 欢迎您的参与！
+
+欢迎提交PR, 以及提出issue。
