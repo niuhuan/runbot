@@ -39,8 +39,23 @@ impl Drop for EchoAsyncResponse {
 
 impl EchoAsyncResponse {
     pub async fn response(mut self, timeout: Duration) -> Result<Response> {
-        let r = tokio::time::timeout(timeout, async { self.1.recv().await }).await?;
-        Ok(r.ok_or(Error::StateError("response not received".to_string()))?)
+        let r = tokio::time::timeout(timeout, async { self.1.recv().await }).await;
+        let r = match r {
+            Ok(r) => r,
+            Err(err) => {
+                return Err(Error::TimeoutError(
+                    format!("response timeout for wait echo : {}", self.0),
+                    err,
+                ));
+            }
+        };
+        match r {
+            Some(r) => Ok(r),
+            None => Err(Error::StateError(format!(
+                "response not received : {}",
+                self.0
+            ))),
+        }
     }
 
     pub async fn data(self, timeout: Duration) -> Result<serde_json::Value> {
@@ -107,6 +122,16 @@ impl BotContext {
                 match parse_post(text) {
                     Ok(post) => {
                         tracing::debug!("parse post: {:?}", post);
+                        if let Post::Response(response) = &post {
+                            if let Some(v) = bot_ctx.echo_notifer.remove(&response.echo) {
+                                match v.1.send(response.clone()).await {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        tracing::warn!("echo map error : {:?}", err);
+                                    }
+                                }
+                            }
+                        }
                         let _ = loop_processors(bot_ctx, self.processors.iter(), &post).await;
                     }
                     Err(e) => {

@@ -22,6 +22,7 @@ pub mod set_group_name;
 pub mod set_group_special_title;
 pub mod set_group_whole_ban;
 
+pub mod create_group_file_folder;
 pub mod delete_friend;
 pub mod delete_group_file;
 pub mod mark_msg_as_read;

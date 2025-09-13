@@ -14,6 +14,7 @@ async fn main() {
         .add_processor(DEMO_AUTO_APPROVE_FN)
         .add_processor(DEMO_COMMAND_BAN)
         .add_processor(EXAMPLE_MOD)
+        .add_processor(DEMO_MESSAGE_PROCESSOR_FN_MORE)
         .build()
         .unwrap();
     loop_client(bot_ctx).await.unwrap();
@@ -161,4 +162,24 @@ async fn mod_process_b(_bot_ctx: Arc<BotContext>, _messgae: &Message) -> Result<
 
 fn mod_process_b_instance() -> Processor {
     MOD_PROCESS_B.into()
+}
+
+#[processor]
+pub async fn demo_message_processor_fn_more(
+    bot_ctx: Arc<BotContext>,
+    message: &Message,
+) -> Result<bool> {
+    // 创建群文件夹
+    if message.raw_message.eq("create dir") {
+        if let MessageType::Group = message.message_type {
+            let data = bot_ctx
+                .create_group_file_folder(message.group_id, "new folder")
+                .await?
+                .wait(Duration::from_secs(10))
+                .await?;
+            tracing::error!("create dir data: {:?}", data);
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
