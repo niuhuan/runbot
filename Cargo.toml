@@ -1,4 +1,4 @@
 [workspace]
-package.version = "0.0.7"
+package.version = "0.0.8"
 resolver = "3"
 members = ["runbot", "runbot-codegen"]
