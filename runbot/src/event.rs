@@ -158,6 +158,8 @@ pub enum MessageData {
     At(MessageAt),
     Reply(MessageReply),
     Forward(MessageForward),
+    Json(MessageJson),
+    Xml(MessageXml),
     Unknown(serde_json::Value),
 }
 
@@ -205,6 +207,16 @@ impl serde::Serialize for MessageData {
             MessageData::Forward(forward) => json!({
                 "type": "forward",
                 "data": forward,
+            })
+            .serialize(serializer),
+            MessageData::Json(json) => json!({
+                "type": "json",
+                "data": json,
+            })
+            .serialize(serializer),
+            MessageData::Xml(xml) => json!({
+                "type": "xml",
+                "data": xml,
             })
             .serialize(serializer),
             MessageData::Unknown(value) => value.clone().serialize(serializer),
@@ -311,6 +323,16 @@ impl Into<MessageData> for MessageReply {
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageForward {
     pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+pub struct MessageJson {
+    pub data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
+pub struct MessageXml {
+    pub data: String,
 }
 
 #[derive(Debug, Clone)]

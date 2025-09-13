@@ -51,6 +51,15 @@ impl EchoAsyncResponse {
             Ok(r.data)
         }
     }
+
+    pub async fn ok(self, timeout: Duration) -> Result<()> {
+        let r = self.response(timeout).await?;
+        if r.retcode != 0 {
+            return Err(Error::StateError(r.message));
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl BotContext {

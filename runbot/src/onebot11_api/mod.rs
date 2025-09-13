@@ -23,7 +23,9 @@ pub mod set_group_special_title;
 pub mod set_group_whole_ban;
 
 pub mod delete_friend;
-pub mod friend_poke;
+pub mod delete_group_file;
 pub mod mark_msg_as_read;
 pub mod ocr_image;
+pub mod send_poke;
 pub mod set_group_remark;
+pub mod upload_group_file;

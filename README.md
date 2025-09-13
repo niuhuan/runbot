@@ -231,7 +231,8 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
   - [x] 获取语音、获取图片、检查是否可以发送图片、检查是否可以发送语音
   - [ ] 获取运行状态、获取版本信息、重启 OneBot 实现、清理缓存
   - [ ] ...
-  - [x] 删除好友、戳一戳好友、设置群备注
+  - [x] 删除好友 (llonebot napcat 接口略有不同, llonebot不支持第2、3个参数将会直接忽略)
+  - [x] 戳一戳、设置群备注、上传群文件、删除群文件
   - [x] 标记消息已读、图片OCR
   - [ ] ...
 - [x] 类型
@@ -248,6 +249,9 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 - https://llonebot.com/guide/getting-started (Windows)
 - https://napneko.github.io/ (Windows/Linux/MacOS)
 - https://github.com/NapNeko/NapCat-Docker (docker)
+
+- https://napcat.apifox.cn/
+- https://llonebot.apifox.cn/
 
 Tips:
   1. windows推荐llonebot一键启动，安装QQ后直接双击启动运行即可。

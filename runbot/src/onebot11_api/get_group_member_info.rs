@@ -10,6 +10,8 @@ pub struct GroupMemberInfo {
     #[serde(default)]
     pub card: String,
     #[serde(default)]
+    pub card_or_nickname: String,
+    #[serde(default)]
     pub sex: String,
     #[serde(default)]
     pub age: i64,
@@ -25,6 +27,15 @@ pub struct GroupMemberInfo {
     pub title_expire_time: i64,
     #[serde(default)]
     pub card_changeable: bool,
+
+    #[serde(default)]
+    pub area: String,
+    #[serde(default)]
+    pub group_id: i64,
+    #[serde(default)]
+    pub join_time: i64,
+    #[serde(default)]
+    pub last_sent_time: i64,
 }
 
 impl BotContext {
