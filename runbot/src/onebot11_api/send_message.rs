@@ -3,6 +3,7 @@ use crate::prelude::BotContext;
 use crate::prelude::EchoAsyncResponse;
 use crate::prelude::MessageType;
 use crate::prelude::SendMessage;
+use crate::re_export::serde_json;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Duration;
@@ -37,7 +38,7 @@ impl BotContext {
         let msg = json!(
             {
                 "user_id": user_id,
-                "message": message.json()?,
+                "message": message.chain(),
             }
         );
         self.websocket_send("send_private_msg", msg)
@@ -53,7 +54,7 @@ impl BotContext {
         let msg = json!(
             {
                 "group_id": group_id,
-                "message": message.json()?,
+                "message": message.chain(),
             }
         );
         self.websocket_send("send_group_msg", msg)

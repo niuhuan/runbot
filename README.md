@@ -242,6 +242,8 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
   - [x] 机器人命令匹配
   - [x] 模块
 
+- [x] 快捷回复组群或个人消息, 请参考 [runbot/examples/client.rs](runbot/examples/client.rs) 中的 `pub trait Reply`
+
 ## 环境
 
 #### 需要一个支持onebot v11协议的机器人, 推荐:

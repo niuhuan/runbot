@@ -920,6 +920,8 @@ impl MessageData {
             "at" => Ok(MessageData::At(MessageAt::parse(value)?)),
             "reply" => Ok(MessageData::Reply(MessageReply::parse(value)?)),
             "forward" => Ok(MessageData::Forward(MessageForward::parse(value)?)),
+            "json" => Ok(MessageData::Json(MessageJson::parse(value)?)),
+            "xml" => Ok(MessageData::Xml(MessageXml::parse(value)?)),
             _ => Ok(MessageData::Unknown(value.clone())),
         }
     }
@@ -930,27 +932,29 @@ pub fn parse_post(text: &str) -> Result<Post> {
     Post::parse(&value)
 }
 
-pub trait SendMessage {
-    fn json(&self) -> Result<serde_json::Value>;
+pub trait SendMessage: Sync + Send {
+    fn chain(self) -> MessageChain;
 }
 
 impl SendMessage for &str {
-    fn json(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::Value::String(self.to_string()))
+    fn chain(self) -> MessageChain {
+        vec![MessageData::Text(MessageText {
+            text: self.to_string(),
+        })]
     }
 }
 
 impl SendMessage for String {
-    fn json(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::Value::String(self.clone()))
+    fn chain(self) -> MessageChain {
+        vec![MessageData::Text(MessageText { text: self })]
     }
 }
 
 pub type MessageChain = Vec<MessageData>;
 
 impl SendMessage for MessageChain {
-    fn json(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::to_value(&self)?)
+    fn chain(self) -> MessageChain {
+        self
     }
 }
 

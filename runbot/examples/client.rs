@@ -1,5 +1,5 @@
 use anyhow::Result;
-use runbot::prelude::*;
+use runbot::prelude::{send_message::SendMessageAsyncResponse, *};
 use std::{sync::Arc, time::Duration};
 
 #[tokio::main]
@@ -181,5 +181,65 @@ pub async fn demo_message_processor_fn_more(
             return Ok(true);
         }
     }
+    // 回复, bilibili连接解析
+    if let Some(MessageData::Json(json)) = message.message.first() {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(json.data.as_str()) {
+            if let Some(meta) = json.get("meta") {
+                if let Some(detail_1) = meta.get("detail_1") {
+                    if let Some(qqdocurl) = detail_1.get("qqdocurl") {
+                        if let Some(qqdocurl) = qqdocurl.as_str() {
+                            if qqdocurl.contains("/b23.tv/") {
+                                message
+                                    .reply(
+                                        bot_ctx,
+                                        format!("你发送了一个b23.tv的链接 : {qqdocurl}"),
+                                    )
+                                    .await?;
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(false)
+}
+
+#[async_trait::async_trait]
+pub trait Reply {
+    async fn reply(
+        &self,
+        bot_ctx: Arc<BotContext>,
+        chain: impl SendMessage,
+    ) -> Result<SendMessageAsyncResponse>;
+}
+
+#[async_trait::async_trait]
+impl Reply for Message {
+    async fn reply(
+        &self,
+        bot_ctx: Arc<BotContext>,
+        chain: impl SendMessage,
+    ) -> Result<SendMessageAsyncResponse> {
+        match self.message_type {
+            MessageType::Private => Ok(bot_ctx.send_private_message(self.user_id, chain).await?),
+            MessageType::Group => {
+                let mut data = vec![];
+                let mut chain = chain.chain();
+                data.push(MessageData::Reply(MessageReply {
+                    id: self.message_id,
+                }));
+                data.push(MessageData::At(MessageAt {
+                    qq: self.sender.user_id.to_string(),
+                    name: self.sender.nickname.clone(),
+                }));
+                data.append(&mut chain);
+                Ok(bot_ctx.send_group_message(self.group_id, data).await?)
+            }
+            _ => {
+                return Err(anyhow::anyhow!("不支持的消息类型"));
+            }
+        }
+    }
 }
