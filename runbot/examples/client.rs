@@ -231,6 +231,24 @@ pub async fn demo_message_processor_fn_more(
             return Ok(true);
         }
     }
+    // 获取群文件链接
+    if message.raw_message.eq("get file url") {
+        if let MessageType::Group = message.message_type {
+            let files = bot_ctx.get_group_root_files(message.group_id).await?.files;
+            if files.is_empty() {
+                message.reply(bot_ctx, "没有文件").await?;
+                return Ok(true);
+            }
+            // 取第一个文件
+            let data = bot_ctx
+                .get_group_file_url(message.group_id, files[0].file_id.as_str())
+                .await?;
+            message
+                .reply(bot_ctx, format!("文件链接: {}", data.url))
+                .await?;
+            return Ok(true);
+        }
+    }
     Ok(false)
 }
 
