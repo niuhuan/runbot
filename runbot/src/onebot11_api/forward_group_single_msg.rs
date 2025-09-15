@@ -4,19 +4,17 @@ use crate::prelude::EchoAsyncResponse;
 use serde_json::json;
 
 impl BotContext {
-    pub async fn set_group_kick(
+    pub async fn forward_group_single_msg(
         &self,
-        group_id: i64,
+        message_id: i64,
         user_id: i64,
-        reject_add_request: bool,
     ) -> Result<EchoAsyncResponse> {
         let msg = json!(
             {
-                "group_id": group_id,
+                "message_id": message_id,
                 "user_id": user_id,
-                "reject_add_request": reject_add_request,
             }
         );
-        self.websocket_send("set_group_kick", msg).await
+        self.websocket_send("forward_group_single_msg", msg).await
     }
 }
