@@ -203,6 +203,34 @@ pub async fn demo_message_processor_fn_more(
             }
         }
     }
+    // 获取群文件列表
+    if message.raw_message.eq("list files") {
+        if let MessageType::Group = message.message_type {
+            let data = bot_ctx.get_group_root_files(message.group_id).await?;
+            let mut reply = String::new();
+            for folder in data.folders {
+                reply.push_str(&format!(
+                    "文件夹: {} id: {}\n",
+                    folder.folder_name, folder.folder_id
+                ));
+            }
+            for file in data.files {
+                reply.push_str(&format!("文件: {} id: {}\n", file.file_name, file.file_id));
+            }
+            if reply.is_empty() {
+                reply.push_str("没有文件");
+            }
+            message.reply(bot_ctx, reply).await?;
+            return Ok(true);
+        }
+    }
+    // 群签到
+    if message.raw_message.eq("set sign") {
+        if let MessageType::Group = message.message_type {
+            bot_ctx.set_group_sign(message.group_id).await?;
+            return Ok(true);
+        }
+    }
     Ok(false)
 }
 

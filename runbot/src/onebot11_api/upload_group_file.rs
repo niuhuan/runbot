@@ -16,8 +16,8 @@ pub struct UploadGroupFileWating(EchoAsyncResponse);
 impl UploadGroupFileWating {
     pub async fn wait(self, timeout: Duration) -> Result<UploadGroupFile> {
         let response = self.0.data(timeout).await?;
-        let can_send_record: UploadGroupFile = serde_json::from_value(response)?;
-        Ok(can_send_record)
+        let data: UploadGroupFile = serde_json::from_value(response)?;
+        Ok(data)
     }
 }
 

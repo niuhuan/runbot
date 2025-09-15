@@ -25,6 +25,7 @@ pub struct BotContext {
     pub echo_notifer: Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
 }
 
+#[derive(Debug)]
 pub struct EchoAsyncResponse(
     String,
     tokio::sync::mpsc::Receiver<Response>,

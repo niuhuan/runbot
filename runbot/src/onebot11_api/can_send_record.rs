@@ -14,7 +14,7 @@ impl BotContext {
             .websocket_send("can_send_record", serde_json::Value::Null)
             .await?;
         let response = response.data(Duration::from_secs(10)).await?;
-        let can_send_record: CanSendRecord = serde_json::from_value(response)?;
-        Ok(can_send_record)
+        let data: CanSendRecord = serde_json::from_value(response)?;
+        Ok(data)
     }
 }

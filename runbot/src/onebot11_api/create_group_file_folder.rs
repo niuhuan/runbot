@@ -69,8 +69,8 @@ pub struct CreateGroupFileFolderWating(EchoAsyncResponse);
 impl CreateGroupFileFolderWating {
     pub async fn wait(self, timeout: Duration) -> Result<CreateGroupFileFolderData> {
         let response = self.0.data(timeout).await?;
-        let can_send_record: CreateGroupFileFolderData = serde_json::from_value(response)?;
-        Ok(can_send_record)
+        let data: CreateGroupFileFolderData = serde_json::from_value(response)?;
+        Ok(data)
     }
 }
 
