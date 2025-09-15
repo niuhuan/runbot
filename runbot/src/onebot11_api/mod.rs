@@ -29,6 +29,7 @@ pub mod delete_group_folder;
 pub mod get_group_file_url;
 pub mod get_group_files_by_folder;
 pub mod get_group_root_files;
+pub mod get_private_file_url;
 pub mod mark_msg_as_read;
 pub mod ocr_image;
 pub mod rename_group_file_folder;
