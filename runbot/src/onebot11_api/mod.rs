@@ -26,6 +26,7 @@ pub mod create_group_file_folder;
 pub mod delete_friend;
 pub mod delete_group_file;
 pub mod delete_group_folder;
+pub mod get_group_files_by_folder;
 pub mod get_group_root_files;
 pub mod mark_msg_as_read;
 pub mod ocr_image;
