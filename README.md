@@ -209,9 +209,10 @@ fn mod_process_b_instance() -> Processor {
 
 ## 特性
 
-https://llonebot.apifox.cn/
-
-https://github.com/botuniverse/onebot-11/blob/master/api/public.md
+引用:
+- https://napcat.apifox.cn/
+- https://llonebot.apifox.cn/
+- https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 
 - [x] 事件
   - [x] 监听元事件
@@ -260,9 +261,6 @@ https://github.com/botuniverse/onebot-11/blob/master/api/public.md
 - https://llonebot.com/guide/getting-started (Windows)
 - https://napneko.github.io/ (Windows/Linux/MacOS)
 - https://github.com/NapNeko/NapCat-Docker (docker)
-
-- https://napcat.apifox.cn/
-- https://llonebot.apifox.cn/
 
 Tips:
   1. windows推荐llonebot一键启动，安装QQ后直接双击启动运行即可。
