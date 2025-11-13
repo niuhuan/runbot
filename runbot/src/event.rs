@@ -304,6 +304,7 @@ impl Into<MessageData> for MessageImage {
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageAt {
     pub qq: String,
+    #[serde(default)]
     pub name: String,
 }
 
