@@ -333,7 +333,7 @@ Tips:
 - [x] `get_group_filter_system_msg` - 获取群过滤系统消息
 - [x] `group_check_in` - 群打卡
 
-#### 文件相关（8个，全部完成 ✅）
+#### 文件相关（8个）
 - [x] `upload_private_file` - 上传私聊文件
 - [x] `move_group_file` - 移动群文件
 - [x] `save_file_to_cache` - 转存为永久文件
@@ -359,7 +359,7 @@ Tips:
 - [x] `click_button` - 点击按钮
 - [x] `get_ai_voice` - 获取AI语音
 
-#### 系统操作（5个，全部完成 ✅）
+#### 系统操作（5个）
 - [x] `get_version_info` - 获取版本信息
 - [x] `clear_cache` - 清空缓存
 - [x] `get_bot_account_range` - 获取机器人账号范围
