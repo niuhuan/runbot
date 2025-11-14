@@ -951,6 +951,12 @@ impl SendMessage for String {
     }
 }
 
+impl SendMessage for &String {
+    fn chain(self) -> MessageChain {
+        vec![MessageData::Text(MessageText { text: self.clone() })]
+    }
+}
+
 pub type MessageChain = Vec<MessageData>;
 
 impl SendMessage for MessageChain {
