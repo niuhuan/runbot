@@ -30,13 +30,13 @@ impl Default for PostType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MetaEvent {
     Lifecycle(Lifecycle),
     Heartbeat(Heartbeat),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Heartbeat {
     pub time: i64,
     pub self_id: i64,
@@ -45,13 +45,13 @@ pub struct Heartbeat {
     pub interval: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeartbeatStatus {
     pub online: bool,
     pub good: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lifecycle {
     pub time: i64,
     pub self_id: i64,
@@ -59,14 +59,14 @@ pub struct Lifecycle {
     pub sub_type: LifecycleSubType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LifecycleSubType {
     Enable,
     Disable,
     Connect,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     pub status: String,
     pub retcode: i64,
@@ -76,7 +76,7 @@ pub struct Response {
     pub echo: String,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Message {
     pub self_id: i64,
     pub user_id: i64,
@@ -146,7 +146,7 @@ pub struct Sender {
     pub title: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum MessageData {
     Text(MessageText),
     Face(MessageFace),
@@ -339,7 +339,7 @@ pub struct ForwardMessage {
     pub messages: Vec<ForwardMessageNode>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForwardMessageNode {
     pub content: Vec<MessageData>,
     pub sender: Sender,
@@ -348,7 +348,7 @@ pub struct ForwardMessageNode {
     pub message_type: MessageType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Notice {
     GroupUpload(GroupUpload),
     GroupAdmin(GroupAdmin),
@@ -376,7 +376,7 @@ pub enum NoticeType {
     Unknown(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupUpload {
     pub time: i64,
     pub self_id: i64,
@@ -387,7 +387,7 @@ pub struct GroupUpload {
     pub file: GroupUploadFile,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupUploadFile {
     pub id: String,
     pub name: String,
@@ -395,7 +395,7 @@ pub struct GroupUploadFile {
     pub busid: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupAdmin {
     pub time: i64,
     pub self_id: i64,
@@ -406,13 +406,13 @@ pub struct GroupAdmin {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GroupAdminSubType {
     Set,
     UnSet,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupDecrease {
     pub time: i64,
     pub self_id: i64,
@@ -424,14 +424,14 @@ pub struct GroupDecrease {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GroupDecreaseSubType {
     Leave,
     Kick,
     KickMe,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupIncrease {
     pub time: i64,
     pub self_id: i64,
@@ -443,13 +443,13 @@ pub struct GroupIncrease {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GroupIncreaseSubType {
     Approve,
     Invite,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupBan {
     pub time: i64,
     pub self_id: i64,
@@ -461,13 +461,13 @@ pub struct GroupBan {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GroupBanSubType {
     Ban,
     LiftBan,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendAdd {
     pub time: i64,
     pub self_id: i64,
@@ -476,7 +476,7 @@ pub struct FriendAdd {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRecall {
     pub time: i64,
     pub self_id: i64,
@@ -488,7 +488,7 @@ pub struct GroupRecall {
     pub message_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendRecall {
     pub time: i64,
     pub self_id: i64,
@@ -498,7 +498,7 @@ pub struct FriendRecall {
     pub message_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Notify {
     Poke(Poke),
     LuckyKing(LuckyKing),
@@ -527,7 +527,7 @@ pub struct Poke {
     pub target_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LuckyKing {
     pub time: i64,
     pub self_id: i64,
@@ -539,7 +539,7 @@ pub struct LuckyKing {
     pub target_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Honor {
     pub time: i64,
     pub self_id: i64,
@@ -551,7 +551,7 @@ pub struct Honor {
     pub user_id: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HonorType {
     Talkative,
     Performer,
