@@ -242,6 +242,7 @@ impl Into<MessageData> for MessageText {
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageFace {
     pub id: String,
+    #[serde(default)]
     pub sub_type: i64,
 }
 
