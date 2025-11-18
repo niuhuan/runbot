@@ -23,6 +23,8 @@ pub struct BotContext {
     pub id: i64,
     pub processors: Arc<Vec<Processor>>,
     pub echo_notifer: Arc<DashMap<String, tokio::sync::mpsc::Sender<Response>>>,
+    pub(crate) shutdown_tx: Mutex<Option<tokio::sync::watch::Sender<bool>>>,
+    pub(crate) shutdown_rx: Mutex<Option<tokio::sync::watch::Receiver<bool>>>,
 }
 
 #[derive(Debug)]
@@ -149,6 +151,38 @@ impl BotContext {
     pub fn processors(&self) -> Arc<Vec<Processor>> {
         self.processors.clone()
     }
+
+    /// 检查是否已经 shutdown
+    pub fn is_shutdown(&self) -> bool {
+        // 如果 shutdown_rx 为 None，说明已经 shutdown
+        let shutdown_rx_guard = self.shutdown_rx.try_lock();
+        if let Ok(shutdown_rx) = shutdown_rx_guard {
+            if shutdown_rx.is_none() {
+                return true;
+            }
+            if let Some(receiver) = shutdown_rx.as_ref() {
+                return *receiver.borrow();
+            }
+        }
+        false
+    }
+
+    /// 关闭 bot，停止所有循环
+    pub async fn shutdown(&self) -> Result<()> {
+        let mut shutdown_tx = self.shutdown_tx.lock().await;
+        if let Some(ref sender) = *shutdown_tx {
+            sender.send(true).map_err(|_| {
+                Error::StateError("Failed to send shutdown signal".to_string())
+            })?;
+            // 清空 sender 和 receiver，标记为已 shutdown
+            *shutdown_tx = None;
+            let mut shutdown_rx = self.shutdown_rx.lock().await;
+            *shutdown_rx = None;
+        }
+        // 断开连接
+        self.set_connection(None).await;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -219,12 +253,15 @@ impl BotContextBuilder {
     }
 
     pub fn build(self) -> Result<Arc<BotContext>> {
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
         Ok(Arc::new(BotContext {
             connection: Mutex::new(None),
             url: self.url,
             id: 0,
             processors: Arc::new(self.processors),
             echo_notifer: Arc::new(DashMap::new()),
+            shutdown_tx: Mutex::new(Some(shutdown_tx)),
+            shutdown_rx: Mutex::new(Some(shutdown_rx)),
         }))
     }
 }

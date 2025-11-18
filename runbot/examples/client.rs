@@ -116,28 +116,6 @@ pub async fn demo_command_ban(
     Ok(true)
 }
 
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    #[tokio::test]
-    async fn test_demo_command_ban() {
-        let bot_ctx = BotContextBuilder::new().build().unwrap();
-        let message = Message {
-            message_type: MessageType::Group,
-            message: vec![MessageData::Text(MessageText {
-                text: "-ban 10 1234567890".to_string(),
-            })],
-            ..Default::default()
-        };
-        let result = DemoCommandBan
-            .process_message(bot_ctx, &message)
-            .await
-            .unwrap();
-        assert!(result);
-    }
-}
-
 #[module(
     name = "ExampleMod",
     help = "help()",
@@ -287,5 +265,96 @@ impl Reply for Message {
                 return Err(anyhow::anyhow!("不支持的消息类型"));
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[tokio::test]
+    async fn test_demo_command_ban() {
+        let bot_ctx = BotContextBuilder::new().build().unwrap();
+        let message = Message {
+            message_type: MessageType::Group,
+            message: vec![MessageData::Text(MessageText {
+                text: "-ban 10 1234567890".to_string(),
+            })],
+            ..Default::default()
+        };
+        let result = DemoCommandBan
+            .process_message(bot_ctx, &message)
+            .await
+            .unwrap();
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        use runbot::connection::loop_client;
+        use runbot::error::Error;
+
+        // 创建一个 bot context
+        let bot_ctx = BotContextBuilder::new()
+            .url("ws://ubuntuet:3001") // 使用一个不存在的地址，因为我们只是测试 shutdown
+            .build()
+            .unwrap();
+
+        // 检查初始状态不是 shutdown
+        assert!(!bot_ctx.is_shutdown());
+
+        // 调用 shutdown
+        bot_ctx.shutdown().await.unwrap();
+
+        // 检查 shutdown 后状态是 shutdown
+        assert!(bot_ctx.is_shutdown());
+
+        // 尝试再次调用 shutdown 应该成功（幂等操作）
+        bot_ctx.shutdown().await.unwrap();
+        assert!(bot_ctx.is_shutdown());
+
+        // 尝试再次调用 loop_client 应该返回错误
+        let result = loop_client(bot_ctx.clone()).await;
+        assert!(result.is_err());
+        match result {
+            Err(Error::StateError(msg)) => {
+                assert!(msg.contains("already shutdown"));
+            }
+            _ => panic!("Expected StateError, got different error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_stops_loop() {
+        use runbot::connection::loop_client;
+        use tokio::time::{sleep, timeout, Duration};
+
+        // 创建一个 bot context
+        let bot_ctx = BotContextBuilder::new()
+            .url("ws://localhost:3001") // 使用一个不存在的地址
+            .build()
+            .unwrap();
+
+        // 在后台启动 loop_client
+        let bot_ctx_clone = bot_ctx.clone();
+        let loop_handle = tokio::spawn(async move {
+            loop_client(bot_ctx_clone).await
+        });
+
+        // 等待一小段时间，确保 loop_client 开始运行
+        sleep(Duration::from_millis(100)).await;
+
+        // 调用 shutdown
+        bot_ctx.shutdown().await.unwrap();
+
+        // 等待 loop_client 退出（应该很快，因为 shutdown 信号会立即生效）
+        // 使用 timeout 确保不会无限等待
+        let result = timeout(Duration::from_secs(2), loop_handle).await;
+        assert!(result.is_ok(), "loop_client should exit after shutdown");
+        
+        // 检查 loop_client 是否正常退出（返回 Ok）
+        let loop_result = result.unwrap();
+        assert!(loop_result.is_ok(), "loop_client should return Ok after shutdown");
     }
 }
