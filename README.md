@@ -6,7 +6,9 @@ Rust one bot v11 协议 （ 正向ws / 反向ws ）实现。
 - 开箱即用, 使用过程宏定义功能和模块, 轻松实现机器人。
 - 具有极高的自由度, 支持模块多层嵌套。
 
-完整的demo: [runbot-mybot](https://github.com/niuhuan/runbot-mybot)
+桌面聊天客户端demo: [runbot-desktop](https://github.com/niuhuan/runbot-desktop)
+
+命令行机器人demo: [runbot-mybot](https://github.com/niuhuan/runbot-mybot)
 
 ## 开始
 
