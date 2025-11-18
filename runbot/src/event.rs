@@ -242,7 +242,10 @@ impl Into<MessageData> for MessageText {
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageFace {
     pub id: String,
+    #[serde(default)]
     pub sub_type: i64,
+    #[serde(default)]
+    pub raw: serde_json::Value,
 }
 
 impl Into<MessageData> for MessageFace {
@@ -310,6 +313,7 @@ pub struct MessageAt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, runbot_codegen::ParseJson)]
 pub struct MessageReply {
+    #[serde(deserialize_with = "crate::common::fuzzy_int")]
     pub id: i64,
 }
 
