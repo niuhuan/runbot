@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Post {
     MetaEvent(MetaEvent),
     Response(Response),
@@ -338,7 +338,7 @@ pub struct MessageXml {
     pub data: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForwardMessage {
     pub messages: Vec<ForwardMessageNode>,
 }
