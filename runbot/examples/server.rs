@@ -7,8 +7,16 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-    let server = BotServerBuilder::new()
-        .bind("0.0.0.0:3131")
+    let mut builder = BotServerBuilder::new().bind("0.0.0.0:3131");
+    // Optional: read the inbound token from an environment variable. When it is not set,
+    // connections remain unauthenticated.
+    // Do not hard-code real tokens in source code.
+    if let Ok(token) = std::env::var("RUNBOT_ACCESS_TOKEN") {
+        if !token.is_empty() {
+            builder = builder.access_token(token);
+        }
+    }
+    let server = builder
         .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
         .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .build()

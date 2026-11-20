@@ -1,3 +1,22 @@
+//! Procedural macro implementation for runbot.
+//!
+//! This crate is re-exported by `runbot` and is not normally used directly. It provides:
+//!
+//! - [`processor`]: converts an async function into a message, notice, request, or generic
+//!   event processor, in either the ordinary or command form.
+//! - [`module`]: converts `impl Module for ...` into a registrable module and generates a
+//!   static instance.
+//! - [`ParseJson`], [`UnknownTypeSerde`], and [`UnknownEnumSerdeAndParse`]: generate JSON
+//!   parsing or unknown-value compatibility code for event and response types.
+//!
+//! When the `RUNBOT_CODEGEN_DEBUG` environment variable is set, macro expansion emits the
+//! generated code as compile-time diagnostics. This is for debugging only and should not be
+//! relied on in normal builds.
+//!
+//! Macro expansion depends on names in the caller's scope: some derive-generated `parse`
+//! functions use unqualified `Result`, `Error`, and `serde_json`, so callers must import
+//! those names as `runbot/src/event.rs` does.
+
 extern crate proc_macro;
 
 use std::collections::HashMap;
@@ -8,7 +27,8 @@ use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use syn::{FnArg, parse_macro_input, spanned::Spanned};
 
-/// 如果设置RUNBOT_CODEGEN_DEBUG变量，编译时将会以note方式打印RUNBOT_CODEGEN的生成结果
+/// When `RUNBOT_CODEGEN_DEBUG` is set, prints the generated RUNBOT_CODEGEN output as a
+/// compile-time note.
 
 macro_rules! emit {
     ($tokens:expr) => {{
@@ -41,6 +61,84 @@ impl ProcessorAttributes {
     }
 }
 
+/// Converts a conforming async function into an event processor and registrable instance.
+///
+/// The ordinary form requires two parameters: `Arc<BotContext>` and one of `&Message`,
+/// `&Notice`, `&Request`, or `&Post`. The function must be `async`, and its return type must
+/// be compatible with the corresponding processor trait, usually `anyhow::Result<bool>`.
+/// The macro selects the trait from the second parameter:
+///
+/// | Second parameter | Implemented trait | Registered as |
+/// | --- | --- | --- |
+/// | `&Message` | `runbot::process::MessageProcessor` | `runbot::process::Processor::Message` |
+/// | `&Notice` | `runbot::process::NoticeProcessor` | `runbot::process::Processor::Notice` |
+/// | `&Request` | `runbot::process::RequestProcessor` | `runbot::process::Processor::Request` |
+/// | `&Post` | `runbot::process::PostProcessor` | `runbot::process::Processor::Post` |
+///
+/// The macro derives an UpperCamelCase processor type and an UPPER_SNAKE_CASE static
+/// instance from the function name. The generated type can be registered through
+/// `Into<Processor>`, and the original function is preserved. Generated names must not
+/// conflict with other items in the same module. Parameter types are matched syntactically;
+/// use the imports and forms shown in the examples. Type aliases and fully qualified paths
+/// are not guaranteed to be accepted.
+///
+/// The command form uses `#[processor(command = "...")]`. The first parameter must be
+/// `Arc<BotContext>`, the second parameter must have type `&Message` and must be named
+/// `message` (generated code refers to that name directly), and additional parameters follow
+/// in the order of the named parameters in the pattern. Pattern syntax:
+///
+/// | Pattern | Matches | Optional/repeat suffix | Parameter type |
+/// | --- | --- | --- | --- |
+/// | literal text | one complete token | `?`, `+`, `*` | no parameter |
+/// | `{:n}` / `{name:n}` | `\d+(\.\d+)?` prefix | `?`, `+`, `*` | `T`, `Option<T>`, or `Vec<T>` |
+/// | `{:s}` / `{name:s}` | remainder of the current token | `?`, `+`, `*` | `T`, `Option<T>`, or `Vec<T>` |
+/// | `{:e}` / `{name:e}` | all remaining tokens, joined by spaces | `?`, `+`, `*` | `T`, `Option<T>`, or `Vec<T>` |
+/// | `[a\|b]` / `[name:a\|b]` | enum prefix | `?`, `+`, `*` | `T`, `Option<T>`, or `Vec<T>` |
+///
+/// Named parameters are converted through `FromStr`; if conversion fails, the processor
+/// returns `Ok(false)`. `?` requires `Option<T>`, while `+` and `*` require `Vec<T>`.
+/// `{...:e}` may appear at most once and must be last in the pattern. Command matching reads
+/// only text segments and @ segments from the message chain; any other segment causes an
+/// immediate `Ok(false)`. Message text is split on ASCII whitespace. An empty name, a
+/// parameter-count mismatch, or a type mismatch produces a compile-time error.
+///
+/// # Known limitations
+///
+/// The current implementation generates incomplete code for `{name:e}?` and `{name:e}+`,
+/// so these combinations fail to compile: the optional form is missing an `else` branch and
+/// the `+` form does not bind the parameter. Use the suffix-free `{name:e}` for a trailing
+/// text argument. `{name:e}*` can be used when a `Vec<String>` is required (because the
+/// extraction consumes all remaining tokens, it produces at most one element in practice).
+///
+/// # Examples
+///
+/// Ordinary-form input shape (a complete compilable example is in the `runbot` crate docs):
+///
+/// ```text
+/// #[processor]
+/// pub async fn observe_message(
+///     bot_ctx: Arc<BotContext>,
+///     message: &Message,
+/// ) -> anyhow::Result<bool> { ... }
+///
+/// // Generates the OBSERVE_MESSAGE static instance, convertible to Processor.
+/// ```
+///
+/// Command-form input shape:
+///
+/// ```text
+/// #[processor(command = "[-|/]mute {seconds:n} {user:n}+")]
+/// pub async fn mute_command(
+///     bot_ctx: Arc<BotContext>,
+///     message: &Message,
+///     seconds: i64,
+///     user: Vec<i64>,
+/// ) -> anyhow::Result<bool> { ... }
+/// ```
+///
+/// This is a proc-macro crate and cannot depend on `runbot` in its own doctests, so the
+/// snippets above use the `text` marker. Compilable usage examples are in the `runbot`
+/// crate documentation.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn processor(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -146,6 +244,7 @@ fn normal_processor(input: TokenStream) -> TokenStream {
         _ => abort!(&second_param.span(), "second parameter must be a parameter"),
     };
     emit!(quote::quote! {
+        #[doc = "Processor type generated by `#[processor]`."]
         #[derive(Copy, Clone, Default, Debug)]
         #vis struct #struct_name;
 
@@ -166,6 +265,7 @@ fn normal_processor(input: TokenStream) -> TokenStream {
             }
         }
 
+        #[doc = "Processor static instance generated by `#[processor]`."]
         #vis static #static_name: #struct_name = #struct_name;
 
         #method_clone
@@ -178,6 +278,17 @@ fn normal_processor(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Generates an associated `parse(&serde_json::Value) -> Result<Self>` function for a type.
+///
+/// The generated implementation uses `serde_json::from_value(json.clone())`, so the target
+/// type must already implement `Deserialize` and the expansion site must resolve the
+/// unqualified names `Result` and `serde_json`. The function does not reuse event dispatch
+/// logic and does not provide an Unknown fallback; unknown or missing fields follow the
+/// Serde attributes on the target type.
+///
+/// A common use is to add `ParseJson` to a struct that already derives `Deserialize` and
+/// import `Result` and `serde_json` in the caller module. See `runbot/src/event.rs` for a
+/// real usage.
 #[proc_macro_derive(ParseJson)]
 pub fn parse_json_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -185,6 +296,7 @@ pub fn parse_json_derive(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #name {
+            #[doc = "Deserializes a JSON value into this type."]
             pub fn parse(json: &serde_json::Value) -> Result<Self> {
                 Ok(serde_json::from_value(json.clone())?)
             }
@@ -194,6 +306,16 @@ pub fn parse_json_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Generates string serialization and deserialization for the "known variants plus
+/// `Unknown(String)`" enum form.
+///
+/// Known variants are written using the snake_case form of the variant name; `Unknown(s)`
+/// serializes as `s`. During deserialization, known strings map to the corresponding variant
+/// and other strings are stored as `Unknown(original)`. This derive applies only to enums
+/// and expects the unknown variant to be named `Unknown` and to carry one `String`. A
+/// violation panics during macro expansion. The derive generates both `Serialize` and
+/// `Deserialize`; do not derive those traits separately. Generated code uses the unqualified
+/// `serde` name, which the caller must make resolvable.
 #[proc_macro_derive(UnknownTypeSerde)]
 pub fn notice_type_serde(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -246,16 +368,28 @@ pub fn notice_type_serde(input: TokenStream) -> TokenStream {
     emit!(r#gen)
 }
 
+/// Generates `parse(&serde_json::Value) -> Result<Self>` for an enum with a dispatch field.
+///
+/// The dispatch field must be specified with `#[enum_field(name = "...")]`. Every non-Unknown
+/// variant should carry one type that provides `parse(&Value)`; the dispatch value is the
+/// snake_case form of the variant name. A missing dispatch field or a non-string value
+/// returns `Error::FieldError`. Unknown values are assigned to the
+/// `Unknown(serde_json::Value)` variant with the complete object; if that variant is absent,
+/// a field error is returned.
+///
+/// Generated code uses the unqualified names `Result`, `Error`, and `serde_json`, which the
+/// caller must make resolvable. This derive does not generate `Serialize`/`Deserialize`;
+/// derive them separately when needed.
 #[proc_macro_derive(UnknownEnumSerdeAndParse, attributes(enum_field))]
 pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
-    // 解析输入
+    // Parse the input.
     let input = parse_macro_input!(input as syn::DeriveInput);
     let enum_name = &input.ident;
 
-    // 默认分派字段
+    // Default dispatch field.
     let mut field_name = Option::<String>::None;
 
-    // 支持 #[parse_json(field = "...")]
+    // Support #[parse_json(field = "...")].
     for attr in &input.attrs {
         if attr.path().is_ident("enum_field") {
             if let Ok(nested) = attr.parse_args_with(|input: syn::parse::ParseStream| {
@@ -282,7 +416,7 @@ pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
         abort!(&input.span(), "enum_field not define");
     };
 
-    // 处理变体
+    // Process variants.
     let variants = match &input.data {
         syn::Data::Enum(syn::DataEnum { variants, .. }) => variants,
         _ => panic!("ParseJson only supports enums"),
@@ -296,7 +430,7 @@ pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
         match &variant.fields {
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let ty = &fields.unnamed.first().unwrap().ty;
-                // 检查是不是 Unknown(serde_json::Value)
+                // Check whether this is Unknown(serde_json::Value).
                 let is_unknown =
                     ident == "Unknown" && quote!(#ty).to_string().contains("serde_json :: Value");
                 if is_unknown {
@@ -320,6 +454,7 @@ pub fn unknown_enum_serde_and_parse(input: TokenStream) -> TokenStream {
 
     let r#gen = quote! {
         impl #enum_name {
+            #[doc = "Parses a JSON value into this enum using its dispatch field."]
             pub fn parse(value: &serde_json::Value) -> Result<Self> {
                 let request_type = value.get(#field_name)
                     .ok_or(Error::FieldError(format!("{} not found", #field_name)))?;
@@ -941,6 +1076,7 @@ fn command_processor(bot_command_pattern_str: syn::LitStr, input: TokenStream) -
     }
 
     emit!(quote::quote! {
+        #[doc = "Command processor type generated by `#[processor(command = ...)]`."]
         #[derive(Copy, Clone, Default, Debug)]
         #vis struct #struct_name;
 
@@ -962,6 +1098,7 @@ fn command_processor(bot_command_pattern_str: syn::LitStr, input: TokenStream) -
             }
         }
 
+        #[doc = "Command processor static instance generated by `#[processor(command = ...)]`."]
         #vis static #static_name: #struct_name = #struct_name;
 
         #method_clone
@@ -980,9 +1117,9 @@ fn is_text_to_end_at_most_one_and_last(items: &[BotCommandItem]) -> bool {
         .filter(|x| matches!(x, BotCommandItem::TextToEnd(_, _, _, _)))
         .count();
     match count {
-        0 => true,                                                                // 没有也可以
-        1 => matches!(items.last(), Some(BotCommandItem::TextToEnd(_, _, _, _))), // 有且在最后
-        _ => false,                                                               // 超过一个
+        0 => true, // none is allowed
+        1 => matches!(items.last(), Some(BotCommandItem::TextToEnd(_, _, _, _))), // present and last
+        _ => false,                                                               // more than one
     }
 }
 
@@ -990,14 +1127,14 @@ fn is_text_to_end_at_most_one_and_last(items: &[BotCommandItem]) -> bool {
 
 #[derive(Debug, Clone, PartialEq)]
 enum BotCommandItem {
-    Number(bool, bool, bool),              // {:n}? | {:n}* | {:n}+ | 匹配数字
-    NumberParam(bool, bool, bool, String), // {time:n}? | {time:n}* | {time:n}+ | 匹配数字并命名
-    PlainText(bool, bool, bool, String),   // hi? | hello* | world+ | 纯文本
-    TextToSpace(bool, bool, bool),         // {:s}? | {:s}* | {:s}+ | 直到空白
-    TextToSpaceParam(bool, bool, bool, String), // {text:s}? | {text:s}* | {text:s}+ | 直到空白并命名
+    Number(bool, bool, bool),                   // {:n}? | {:n}* | {:n}+ | number
+    NumberParam(bool, bool, bool, String),      // {time:n}? | {time:n}* | {time:n}+ | named number
+    PlainText(bool, bool, bool, String),        // hi? | hello* | world+ | literal text
+    TextToSpace(bool, bool, bool),              // {:s}? | {:s}* | {:s}+ | until whitespace
+    TextToSpaceParam(bool, bool, bool, String), // {text:s}? | {text:s}* | {text:s}+ | named, until whitespace
     Enum(bool, bool, bool, Vec<String>),        // [a|b]? | [a|b]* | [a|b]+
     EnumParam(bool, bool, bool, String, Vec<String>), // [name:a|b]? | [name:a|b]* | [name:a|b]+
-    TextToEnd(bool, bool, bool, String),        // {text:e}? | {text:e}* | {text:e}+ | 直到结尾
+    TextToEnd(bool, bool, bool, String),        // {text:e}? | {text:e}* | {text:e}+ | until end
 }
 
 fn get_repeat_flags_from_char(ch: char) -> Option<(bool, bool, bool)> {
@@ -1017,12 +1154,13 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
     while i < template_len {
         let rest = &template[i..];
 
-        // 匹配 {...}
+        // Match `{...}`.
         if rest.starts_with('{') {
             if let Some(j) = rest.find('}') {
                 let body = &rest[1..j];
 
-                // 查看紧跟其后的重复标志，仅当为 ?/*/+ 时才前进
+                // Look for a repeat flag immediately after the closing brace and advance
+                // only when it is one of `?`, `*`, `+`.
                 let mut next_index = i + j + 1;
                 let mut flags = (false, false, false);
                 if let Some(ch) = rest[j + 1..].chars().next() {
@@ -1067,16 +1205,17 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
                     i = next_index;
                     continue;
                 }
-                // 如果 body 不匹配已知类型，降级到纯文本处理
+                // If the body is not a known type, fall back to literal-text handling.
             }
         }
 
-        // 匹配 [枚举]
+        // Match `[enum]`.
         if rest.starts_with('[') {
             if let Some(j) = rest.find(']') {
                 let body = &rest[1..j];
 
-                // 查看紧跟其后的重复标志，仅当为 ?/*/+ 时才前进
+                // Look for a repeat flag immediately after the closing bracket and advance
+                // only when it is one of `?`, `*`, `+`.
                 let mut next_index = i + j + 1;
                 let mut flags = (false, false, false);
                 if let Some(ch) = rest[j + 1..].chars().next() {
@@ -1108,7 +1247,7 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
             }
         }
 
-        // 匹配纯文本（包括空白）以及 ?/*/+ 标记
+        // Match literal text (including whitespace) and `?`/`*`/`+` markers.
         let mut j = 0;
         while i + j < template_len {
             let c = template[i + j..].chars().next().unwrap();
@@ -1125,11 +1264,13 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
             while let Some((idx, ch)) = chars_iter.next() {
                 if let Some((opt, rep0, rep1)) = get_repeat_flags_from_char(ch) {
                     let part = &text[last_idx..idx];
-                    // 避免空切片导致的额外空项（例如末尾符号后）
+                    // Avoid an extra empty item caused by an empty slice (for example,
+                    // after a trailing marker).
                     if !part.is_empty() {
                         let trimmed = part.trim();
                         if trimmed.is_empty() {
-                            // 对纯空白片段保留一个空字符串 PlainText，用于表示空白占位
+                            // Keep an empty PlainText item for a whitespace-only fragment
+                            // to represent a whitespace placeholder.
                             result.push(BotCommandItem::PlainText(
                                 false,
                                 false,
@@ -1148,12 +1289,12 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
                     last_idx = idx + ch.len_utf8();
                 }
             }
-            // 剩余部分（没有跟随重复标志）
+            // Remaining part without a following repeat flag.
             if last_idx < text.len() {
                 let part = &text[last_idx..];
                 let trimmed = part.trim();
                 if trimmed.is_empty() {
-                    // 对仅包含空白的剩余片段，也保留一个空字符串 PlainText
+                    // Also keep an empty PlainText item for a whitespace-only remainder.
                     result.push(BotCommandItem::PlainText(
                         false,
                         false,
@@ -1172,7 +1313,7 @@ fn parse_template(template: &str) -> Vec<BotCommandItem> {
 
             i += j;
         } else {
-            // 无法识别的字符，跳过一个字符以避免死循环
+            // Skip one character for unrecognized input to avoid an infinite loop.
             if let Some(ch) = template[i..].chars().next() {
                 i += ch.len_utf8();
             } else {
@@ -1285,6 +1426,39 @@ impl ModuleAttributes {
     }
 }
 
+/// Converts `impl Module for YourMod {}` into a registrable module and static instance.
+///
+/// The input must be an `impl Module for Type` block. The macro generates
+/// `pub struct Type();`, `impl Module`, `impl Into<Processor>`, and an UPPER_SNAKE_CASE
+/// `pub static` instance. Additional methods defined in the impl block are preserved.
+///
+/// All attributes are optional and use the form `key = "value"`, separated by commas:
+///
+/// - `name = "..."`: module name; defaults to the struct name.
+/// - `help = "..."`: help text; defaults to the struct name.
+/// - `processors = "a+b+..."`: child processors separated by `+`. An item that does not end
+///   with `)` is converted to UPPER_SNAKE_CASE and suffixed with `.into()`; an item ending
+///   with `)` is parsed as an expression. Defaults to an empty list.
+///
+/// `name`, `help`, and `processors` can also be supplied by defining functions with the same
+/// names in the impl block, but an item cannot use both an attribute and a function; doing so
+/// is a compile error. `id` defaults to `crate name::module path::struct name`; a manually
+/// written `id` is preserved. If a string value ends with `)`, `name`/`help` parse it as an
+/// expression (for example `help = "help()"`).
+///
+/// # Examples
+///
+/// Input shape (a complete compilable example is in the `runbot` crate docs):
+///
+/// ```text
+/// #[module(name = "ExampleMod", help = "Example module", processors = "a+b")]
+/// impl Module for ExampleMod {}
+///
+/// // Generates the EXAMPLE_MOD static instance, convertible to Processor.
+/// ```
+///
+/// This is a proc-macro crate and cannot depend on `runbot` in its own doctests, so the
+/// snippet uses the `text` marker.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn module(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -1495,6 +1669,7 @@ pub fn module(args: TokenStream, input: TokenStream) -> TokenStream {
     }
     // into processor
     let struct_define = quote! {
+        #[doc = "Module struct generated by `#[module]`."]
         #[derive(Debug, Copy, Clone)]
         pub struct #struct_ident();
     };
@@ -1516,6 +1691,7 @@ pub fn module(args: TokenStream, input: TokenStream) -> TokenStream {
         proc_macro2::Span::call_site(),
     );
     let static_instance = quote! {
+        #[doc = "Module static instance generated by `#[module]`."]
         pub static #static_name: #struct_ident = #struct_ident();
     };
     //// output

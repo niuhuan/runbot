@@ -1,3 +1,31 @@
+//! OneBot 11 API wrappers.
+//!
+//! Each submodule provides inherent methods on [`crate::bot_context::BotContext`] for one
+//! action or a group of related actions, together with the response data types. Methods
+//! fall into three categories:
+//!
+//! - Send-only methods that return `Ok(())`, such as
+//!   [`crate::bot_context::BotContext::set_group_ban`]. Success only means the request was
+//!   written to the current connection; the upstream business result is not awaited.
+//! - Methods that return [`crate::bot_context::EchoAsyncResponse`], such as
+//!   [`crate::bot_context::BotContext::send_private_message`]. The caller must invoke a
+//!   wait method on the handle to obtain the result.
+//! - Methods that return a concrete data type, such as
+//!   [`crate::bot_context::BotContext::get_friend_list`]. Internally they wait for the
+//!   response, check `retcode`, and deserialize `data`.
+//!
+//! Methods with a `_with_timeout` suffix let the caller choose the response-wait duration.
+//! The same-named method without the suffix uses the API's default duration (commonly 10
+//! seconds; file and history APIs may use longer values). Unless stated otherwise, these
+//! methods require an established WebSocket connection and return
+//! [`crate::error::Error::StateError`] when no connection is available.
+//!
+//! Action names and parameter semantics follow the
+//! [OneBot 11 public API](https://github.com/botuniverse/onebot-11/blob/master/api/public.md)
+//! and the extension documentation of upstream implementations such as NapCat and
+//! LLOneBot. Some modules wrap implementation extensions rather than standard OneBot 11
+//! capabilities; actual support depends on the upstream implementation.
+
 pub mod can_send_image;
 pub mod can_send_record;
 pub mod delete_msg;
@@ -40,7 +68,7 @@ pub mod set_group_remark;
 pub mod set_group_sign;
 pub mod upload_group_file;
 
-// 账号相关
+// Account-related
 pub mod create_favorite;
 pub mod get_account_info;
 pub mod get_favorite_face;
@@ -70,7 +98,7 @@ pub mod set_online_status;
 pub mod set_private_msg_read;
 pub mod set_signature;
 
-// 消息相关
+// Message-related
 pub mod get_group_history_msg;
 pub mod get_image_detail;
 pub mod get_private_history_msg;
@@ -80,7 +108,7 @@ pub mod send_group_ai_voice;
 pub mod get_essence_msg_list;
 pub mod set_essence_msg;
 
-// 群聊相关
+// Group-related
 pub mod batch_kick_group_member;
 pub mod delete_essence_msg;
 pub mod delete_group_notice;
@@ -98,7 +126,7 @@ pub mod set_group_avatar;
 pub mod set_group_bot_add_option;
 pub mod set_group_search;
 
-// 文件相关
+// File-related
 pub mod download_file_to_cache;
 pub mod get_file_info;
 pub mod get_group_file_system_info;
@@ -107,7 +135,7 @@ pub mod rename_group_file;
 pub mod save_file_to_cache;
 pub mod upload_private_file;
 
-// 密钥相关
+// Credentials-related
 pub mod get_clientkey;
 pub mod get_cookies;
 pub mod get_credentials;
@@ -116,7 +144,7 @@ pub mod get_rkey;
 pub mod get_rkey_service;
 pub mod nc_get_rkey;
 
-// 个人操作
+// Personal actions
 pub mod click_button;
 pub mod get_ai_voice;
 pub mod get_ai_voice_person;
@@ -124,7 +152,7 @@ pub mod handle_quick_operation;
 pub mod set_input_status;
 pub mod translate_en_to_zh;
 
-// 系统操作
+// System operations
 pub mod account_logout;
 pub mod clear_cache;
 pub mod get_bot_account_range;
