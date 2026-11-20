@@ -7,8 +7,16 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-    let bot_ctx = BotContextBuilder::new()
-        .url("ws://localhost:3001")
+    let mut builder = BotContextBuilder::new().url("ws://localhost:3001");
+    // Optional: read the upstream access token from an environment variable. When it is not set,
+    // no Authorization header is sent.
+    // Do not hard-code real tokens in source code.
+    if let Ok(token) = std::env::var("RUNBOT_ACCESS_TOKEN") {
+        if !token.is_empty() {
+            builder = builder.access_token(token);
+        }
+    }
+    let bot_ctx = builder
         .add_processor(DEMO_MESSAGE_PROCESSOR_FN)
         .add_processor(DEMO_NOTICE_PROCESSOR_FN)
         .add_processor(DEMO_AUTO_APPROVE_FN)
@@ -59,7 +67,8 @@ pub async fn demo_notice_processor_fn(bot_ctx: Arc<BotContext>, notice: &Notice)
     Ok(false)
 }
 
-// Tips: 设置为允许任何请求添加我时, 会同意好友请求, 并且直接成为单向好友 不会触发此处理器
+// Tip: when the account is configured to allow any friend request, requests are approved
+// automatically and become one-way friends, so this processor is not triggered.
 #[processor]
 pub async fn demo_auto_approve_fn(bot_ctx: Arc<BotContext>, request: &Request) -> Result<bool> {
     match request {
@@ -74,17 +83,20 @@ pub async fn demo_auto_approve_fn(bot_ctx: Arc<BotContext>, request: &Request) -
     Ok(false)
 }
 
-// 中括号匹配结尾需要为冒号和英文字符
-// {:n} 会截从文本开始截取文字 规则为 \d+(\.\d+)? , 截取下的文本以及剩余文本会被trim_space
-// {:s} 开始截取文字 规则为 \W+ , 截取下的文本以及剩余文本会被trim_space
-// {:e} impl take [\W\w]+  , 截取下的文本以及剩余文本会被trim_space
-// 如果需要赋值给变量, 那么在冒号前加入变量名 {name:s} , 最后应用 let some = From::str(截取到的内容), 若成功转换则 赋值name给
-// {}? {}+ {}* : 括号结束的后一位特殊符号分别代表: 可选,至少重复1次,重复0或者多次
-// ?结尾要使用Option类型当参数, +和*需要使用Vec当作参数 同样会应用FromStr
-// [] 表示文字枚举, 使用 | 分割, 同样在前面加入变量名 [name:] 可以赋值给变量, 支持 + 和 * 和 ?
+// A bracketed pattern ends with a colon followed by an ASCII type letter.
+// {:n} matches an integer or decimal number at the start of the current token.
+// {:s} takes the remainder of the current token as text.
+// {:e} takes all remaining tokens, joined by single spaces.
+// To bind a value, put a name before the colon: {name:s}. The captured text is converted
+// with FromStr and assigned to that parameter.
+// A suffix after the closing brace means: ? optional, + one or more, * zero or more.
+// A ? parameter must be Option<T>; + and * parameters must be Vec<T>. Elements are also
+// converted with FromStr.
+// [...] is a literal enum separated by |. [name:...] binds it to a parameter and supports
+// ?, +, and *.
 // Tips:
-// - 如果@不是全体成员可以映射成数字类型
-// - {:s}+ 会一直匹配到结束, 因为数字型属于字符串
+// - An @ mention that is not @all can be mapped to a numeric type.
+// - {:s}+ can consume to the end because number-like text is also a string.
 #[processor(command = "[-|/|~]ban {time:n}[unit:s|m|h]? {user:n}+")]
 pub async fn demo_command_ban(
     bot_ctx: Arc<BotContext>,
@@ -147,7 +159,7 @@ pub async fn demo_message_processor_fn_more(
     bot_ctx: Arc<BotContext>,
     message: &Message,
 ) -> Result<bool> {
-    // 创建群文件夹
+    // Create a group folder.
     if message.raw_message.eq("create dir") {
         if let MessageType::Group = message.message_type {
             let data = bot_ctx
@@ -159,7 +171,7 @@ pub async fn demo_message_processor_fn_more(
             return Ok(true);
         }
     }
-    // 回复, bilibili连接解析
+    // Reply and parse a bilibili link.
     if let Some(MessageData::Json(json)) = message.message.first() {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(json.data.as_str()) {
             if let Some(meta) = json.get("meta") {
@@ -181,7 +193,7 @@ pub async fn demo_message_processor_fn_more(
             }
         }
     }
-    // 获取群文件列表
+    // Get the group file list.
     if message.raw_message.eq("list files") {
         if let MessageType::Group = message.message_type {
             let data = bot_ctx.get_group_root_files(message.group_id).await?;
@@ -202,14 +214,14 @@ pub async fn demo_message_processor_fn_more(
             return Ok(true);
         }
     }
-    // 群签到
+    // Group check-in.
     if message.raw_message.eq("set sign") {
         if let MessageType::Group = message.message_type {
             bot_ctx.set_group_sign(message.group_id).await?;
             return Ok(true);
         }
     }
-    // 获取群文件链接
+    // Get a group file URL.
     if message.raw_message.eq("get file url") {
         if let MessageType::Group = message.message_type {
             let files = bot_ctx.get_group_root_files(message.group_id).await?.files;
@@ -217,7 +229,7 @@ pub async fn demo_message_processor_fn_more(
                 message.reply(bot_ctx, "没有文件").await?;
                 return Ok(true);
             }
-            // 取第一个文件
+            // Take the first file.
             let data = bot_ctx
                 .get_group_file_url(message.group_id, files[0].file_id.as_str())
                 .await?;
@@ -295,26 +307,26 @@ mod tests {
         use runbot::connection::loop_client;
         use runbot::error::Error;
 
-        // 创建一个 bot context
+        // Create a bot context.
         let bot_ctx = BotContextBuilder::new()
-            .url("ws://ubuntuet:3001") // 使用一个不存在的地址，因为我们只是测试 shutdown
+            .url("ws://ubuntuet:3001") // Use a non-existent address because this only tests shutdown.
             .build()
             .unwrap();
 
-        // 检查初始状态不是 shutdown
+        // Check that the initial state is not shutdown.
         assert!(!bot_ctx.is_shutdown());
 
-        // 调用 shutdown
+        // Call shutdown.
         bot_ctx.shutdown().await.unwrap();
 
-        // 检查 shutdown 后状态是 shutdown
+        // Check that the state is shutdown afterward.
         assert!(bot_ctx.is_shutdown());
 
-        // 尝试再次调用 shutdown 应该成功（幂等操作）
+        // Calling shutdown again should succeed (idempotent operation).
         bot_ctx.shutdown().await.unwrap();
         assert!(bot_ctx.is_shutdown());
 
-        // 尝试再次调用 loop_client 应该返回错误
+        // Calling loop_client again should return an error.
         let result = loop_client(bot_ctx.clone()).await;
         assert!(result.is_err());
         match result {
@@ -330,30 +342,31 @@ mod tests {
         use runbot::connection::loop_client;
         use tokio::time::{sleep, timeout, Duration};
 
-        // 创建一个 bot context
+        // Create a bot context.
         let bot_ctx = BotContextBuilder::new()
-            .url("ws://localhost:3001") // 使用一个不存在的地址
+            .url("ws://localhost:3001") // Use a non-existent address.
             .build()
             .unwrap();
 
-        // 在后台启动 loop_client
+        // Start loop_client in the background.
         let bot_ctx_clone = bot_ctx.clone();
         let loop_handle = tokio::spawn(async move {
             loop_client(bot_ctx_clone).await
         });
 
-        // 等待一小段时间，确保 loop_client 开始运行
+        // Wait briefly so loop_client starts running.
         sleep(Duration::from_millis(100)).await;
 
-        // 调用 shutdown
+        // Call shutdown.
         bot_ctx.shutdown().await.unwrap();
 
-        // 等待 loop_client 退出（应该很快，因为 shutdown 信号会立即生效）
-        // 使用 timeout 确保不会无限等待
+        // Wait for loop_client to exit; this should be quick because the shutdown signal
+        // takes effect immediately.
+        // Use a timeout so the test cannot wait forever.
         let result = timeout(Duration::from_secs(2), loop_handle).await;
         assert!(result.is_ok(), "loop_client should exit after shutdown");
-        
-        // 检查 loop_client 是否正常退出（返回 Ok）
+
+        // Check that loop_client exited normally (returned Ok).
         let loop_result = result.unwrap();
         assert!(loop_result.is_ok(), "loop_client should return Ok after shutdown");
     }
